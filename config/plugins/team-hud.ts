@@ -13,7 +13,10 @@ export default {
     const xdgConfig = process.env.XDG_CONFIG_HOME?.trim() || path.join(os.homedir(), ".config")
     const opencodeHome = path.join(xdgConfig, "opencode")
     const swarmHome = path.join(opencodeHome, "swarm")
-    const webServer = path.join(swarmHome, "web", "server.py")
+    let webServer = path.join(opencodeHome, "web", "server.py")
+    if (!existsSync(webServer)) {
+      webServer = path.join(swarmHome, "web", "server.py")
+    }
 
     const location = (ctx?.location || {}) as any
     const projectDir = location.directory || location.project?.canonical || process.cwd()
@@ -43,7 +46,7 @@ export default {
       }
     }
 
-    const webUrl = `http://127.0.0.1:${webPort}`
+    const webUrl = `http://127.0.0.1:${webPort}/?project=${encodeURIComponent(projectName)}`
     process.env.OPENCODE_WEB_PORT = webPort
     process.env.OPENCODE_WEB_URL = webUrl
 
@@ -52,7 +55,7 @@ export default {
         const orchestrator = editor.get("orchestrator")
         if (orchestrator) {
           editor.update("orchestrator", (agent: any) => {
-            agent.description = `[Swarm Lead] Orchestrator. Cockpit: ${webUrl} | GetBrain: ${webUrl}/#brain | Live Tester: ${webUrl}/#tester`
+            agent.description = `[Swarm Lead] Orchestrator. Cockpit: ${webUrl} | GetBrain: ${webUrl}#brain | Live Tester: ${webUrl}#tester`
           })
         }
       })

@@ -25,6 +25,7 @@ from pathlib import Path
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from socketserver import ThreadingMixIn
 import importlib.util
+from urllib.parse import urlparse, parse_qs
 
 # Resolve server directories
 SERVER_DIR = Path(__file__).resolve().parent
@@ -206,11 +207,78 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
         except Exception:
             pass
 
+    def _get_project_param(self):
+        try:
+            parsed = urlparse(self.path)
+            qs = parse_qs(parsed.query)
+            p = qs.get("project", [None])[0] or qs.get("p", [None])[0]
+            if p and p.strip():
+                return p.strip()
+        except Exception:
+            pass
+        return self.server.project_name
+
+    def _resolve_project_dir(self, proj_name):
+        if proj_name == self.server.project_name:
+            return str(self.server.project_dir)
+        candidates = [
+            self.server.project_dir.parent / proj_name,
+            Path.home() / "Documentos" / proj_name,
+            Path.home() / proj_name,
+        ]
+        for c in candidates:
+            if c.is_dir():
+                return str(c)
+        return str(self.server.project_dir)
+
+    def _get_all_projects(self):
+        projects_map = {}
+        team_db_path = Path.home() / ".opencode" / "team" / "team_collab.db"
+        if team_db_path.exists():
+            try:
+                conn = team_server.get_db()
+                try:
+                    for r in conn.execute("SELECT project, COUNT(*) as cnt FROM team_tasks WHERE project IS NOT NULL AND project != '' GROUP BY project"):
+                        p = r[0]
+                        projects_map.setdefault(p, {"name": p, "tasks": 0, "agents": 0})
+                        projects_map[p]["tasks"] = r[1]
+                    for r in conn.execute("SELECT project, COUNT(*) as cnt FROM team_agents WHERE project IS NOT NULL AND project != '' GROUP BY project"):
+                        p = r[0]
+                        projects_map.setdefault(p, {"name": p, "tasks": 0, "agents": 0})
+                        projects_map[p]["agents"] = r[1]
+                    for r in conn.execute("SELECT DISTINCT project FROM team_messages WHERE project IS NOT NULL AND project != ''"):
+                        p = r[0]
+                        projects_map.setdefault(p, {"name": p, "tasks": 0, "agents": 0})
+                finally:
+                    conn.close()
+            except Exception:
+                pass
+
+        mem_db_path = Path.home() / ".opencode" / "memory" / "context_memory.db"
+        if mem_db_path.exists():
+            try:
+                conn = brain_builder.get_db_connection(mem_db_path)
+                if conn:
+                    try:
+                        for r in conn.execute("SELECT DISTINCT project FROM memories WHERE project IS NOT NULL AND project != '' AND project != 'global'"):
+                            p = r[0]
+                            projects_map.setdefault(p, {"name": p, "tasks": 0, "agents": 0})
+                    finally:
+                        conn.close()
+            except Exception:
+                pass
+
+        if self.server.project_name not in projects_map:
+            projects_map[self.server.project_name] = {"name": self.server.project_name, "tasks": 0, "agents": 0}
+
+        return sorted(projects_map.values(), key=lambda x: (-x["tasks"], x["name"]))
+
     def do_GET(self):
         if not self._request_is_local():
             self.send_error(403, "Local dashboard access only")
             return
-        url = self.path.split("?")[0]
+        parsed_url = urlparse(self.path)
+        url = parsed_url.path
 
         # Handle favicon quickly to prevent 404 logs
         if url == "/favicon.ico":
@@ -220,21 +288,34 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
 
         # 0. Health check endpoint
         if url in ("/health", "/api/health"):
+            proj = self._get_project_param()
             self._send_json({
                 "status": "ok",
                 "service": "opencode-cockpit",
-                "project": self.server.project_name,
+                "project": proj,
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            })
+            return
+
+        # 0b. API: List of all Swarm Projects (for dropdown / multi-project telemetry)
+        if url == "/api/projects":
+            cur_proj = self._get_project_param()
+            self._send_json({
+                "current": cur_proj,
+                "default": self.server.project_name,
+                "projects": self._get_all_projects()
             })
             return
 
         # 1. API: Swarm Status (Isolated per project)
         if url == "/api/status":
-            proj = self.server.project_name
-            proj_dir = str(self.server.project_dir)
-            branch = self.server.get_branch()
+            proj = self._get_project_param()
+            proj_dir = self._resolve_project_dir(proj)
+            branch = self.server.get_branch() if proj == self.server.project_name else "main"
             conn = team_server.get_db()
             try:
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                now_iso = now_utc.isoformat()
                 cur = conn.execute("""
                     SELECT agent_name, status, current_task, blockers, window_id, last_heartbeat, updated_at
                     FROM team_agents
@@ -243,7 +324,19 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
                 """, (proj,))
                 agents = [dict(r) for r in cur.fetchall()]
 
-                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                agent_names = {a["agent_name"] for a in agents}
+                if "orchestrator" not in agent_names:
+                    agents.insert(0, {
+                        "agent_name": "orchestrator",
+                        "status": "idle",
+                        "current_task": "Sesion OpenCode activa. Listo para asignacion de tareas.",
+                        "blockers": "",
+                        "window_id": "",
+                        "last_heartbeat": now_iso,
+                        "updated_at": now_iso,
+                        "relative_time": "hace un momento"
+                    })
+
                 for a in agents:
                     time_val = a["last_heartbeat"] or a["updated_at"]
                     a["relative_time"] = team_server.format_relative_time(time_val)
@@ -278,7 +371,7 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
 
         # 2. API: Tasks Board (Isolated per project)
         if url == "/api/tasks":
-            proj = self.server.project_name
+            proj = self._get_project_param()
             conn = team_server.get_db()
             try:
                 cur = conn.execute("""
@@ -304,7 +397,7 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
 
         # 3. API: Artifacts & Contracts (Isolated per project)
         if url == "/api/artifacts":
-            proj = self.server.project_name
+            proj = self._get_project_param()
             conn = team_server.get_db()
             try:
                 cur = conn.execute("""
@@ -330,7 +423,7 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
 
         # 4. API: Context Memories (Isolated per project)
         if url == "/api/memories":
-            proj = self.server.project_name
+            proj = self._get_project_param()
             mem_db_path = Path(os.environ.get("OPENCODE_MEMORY_DB", brain_builder.DEFAULT_MEM_DIR / "context_memory.db"))
             conn = brain_builder.get_db_connection(mem_db_path)
             memories = []
@@ -357,7 +450,7 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
 
         # 4b. API: Continuous Learnings & Feedback Loop (Isolated per project)
         if url == "/api/learnings":
-            proj = self.server.project_name
+            proj = self._get_project_param()
             mem_db_path = Path(os.environ.get("OPENCODE_MEMORY_DB", brain_builder.DEFAULT_MEM_DIR / "context_memory.db"))
             conn = brain_builder.get_db_connection(mem_db_path)
             learnings = []
@@ -384,7 +477,7 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
 
         # 5. API: Activity Feed (Isolated per project)
         if url == "/api/feed":
-            proj = self.server.project_name
+            proj = self._get_project_param()
             conn = team_server.get_db()
             try:
                 cur = conn.execute("""
@@ -410,15 +503,15 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
 
         # 6. API: GetBrain Knowledge Graph (Scans explicit project directory)
         if url == "/api/brain":
-            proj = self.server.project_name
-            proj_dir = str(self.server.project_dir)
+            proj = self._get_project_param()
+            proj_dir = self._resolve_project_dir(proj)
             brain_data = brain_builder.build_project_brain(proj, proj_dir)
             self._send_json(brain_data)
             return
 
         # 6b. API: Swarm Sentinel Compliance & Rules
         if url == "/api/sentinel":
-            proj = self.server.project_name
+            proj = self._get_project_param()
             sentinel_data = {
                 "project": proj,
                 "status": "COMPLIANT",
@@ -460,8 +553,8 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
 
         # 6c. API: Swarm Live Tester Status & Runs
         if url == "/api/tester":
-            proj = self.server.project_name
-            proj_dir = str(self.server.project_dir)
+            proj = self._get_project_param()
+            proj_dir = self._resolve_project_dir(proj)
             detected_runner = "none"
             test_files = []
             if tester_server:
@@ -562,8 +655,8 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
 
-            proj = self.server.project_name
-            proj_dir = str(self.server.project_dir)
+            proj = self._get_project_param()
+            proj_dir = self._resolve_project_dir(proj)
             heartbeat_cycle = 0
 
             try:
@@ -582,6 +675,21 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
                             """, (proj,))
                             agents = [dict(r) for r in cur_ag.fetchall()]
                             now_utc = datetime.datetime.now(datetime.timezone.utc)
+                            now_iso = now_utc.isoformat()
+
+                            agent_names = {a["agent_name"] for a in agents}
+                            if "orchestrator" not in agent_names:
+                                agents.insert(0, {
+                                    "agent_name": "orchestrator",
+                                    "status": "idle",
+                                    "current_task": "Sesion OpenCode activa. Listo para asignacion de tareas.",
+                                    "blockers": "",
+                                    "window_id": "",
+                                    "last_heartbeat": now_iso,
+                                    "updated_at": now_iso,
+                                    "relative_time": "hace un momento"
+                                })
+
                             for a in agents:
                                 time_val = a["last_heartbeat"] or a["updated_at"]
                                 a["relative_time"] = team_server.format_relative_time(time_val)
@@ -610,7 +718,7 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
                                 SELECT id, title, description, assigned_to, status, priority, notes, updated_at
                                 FROM team_tasks
                                 WHERE project = ?
-                                ORDER BY id DESC LIMIT 15
+                                ORDER BY id DESC LIMIT 20
                             """, (proj,))
                             tasks = [dict(r) for r in cur_tasks.fetchall()]
                             for t in tasks:
@@ -623,10 +731,11 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
                     except Exception:
                         pass
 
+                    branch_str = self.server.get_branch() if proj == self.server.project_name else "main"
                     snapshot = {
                         "project": proj,
                         "project_dir": proj_dir,
-                        "branch": self.server.get_branch(),
+                        "branch": branch_str,
                         "clock": datetime.datetime.now().strftime("%H:%M:%S"),
                         "agents": agents,
                         "messages": messages,
@@ -650,6 +759,7 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
             except Exception:
                 return
             return
+
 
         # Serve static assets from public/ directory
         return super().do_GET()
@@ -741,11 +851,36 @@ def find_or_assign_port(project_dir, project_name, start_port=PORT_RANGE_START, 
         s.bind(('', 0))
         return s.getsockname()[1], False
 
+def register_active_session(project_name, project_dir):
+    """Registers orchestrator as active/idle for this project session and resets stale working agents."""
+    try:
+        conn = team_server.get_db()
+        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        with team_server.db_write_lock(conn):
+            conn.execute("""
+                INSERT INTO team_agents (agent_name, project, status, current_task, blockers, window_id, last_heartbeat, updated_at)
+                VALUES ('orchestrator', ?, 'idle', 'Sesion activa en OpenCode. Listo para asignacion de tareas.', '', '', ?, ?)
+                ON CONFLICT(agent_name, project) DO UPDATE SET
+                    status = 'idle',
+                    current_task = CASE WHEN team_agents.current_task = '' THEN 'Sesion activa en OpenCode. Listo para asignacion de tareas.' ELSE team_agents.current_task END,
+                    last_heartbeat = excluded.last_heartbeat,
+                    updated_at = excluded.updated_at
+            """, (project_name, now, now))
+            conn.execute("""
+                UPDATE team_agents
+                SET status = 'idle'
+                WHERE project = ? AND status = 'working'
+            """, (project_name,))
+        conn.close()
+    except Exception:
+        pass
+
 def ensure_server(project_dir, project_name, open_browser=False):
     """
     Ensures a dedicated server for this project is running in the background.
     Prints the assigned port number and exits.
     """
+    register_active_session(project_name, project_dir)
     port, running = find_or_assign_port(project_dir, project_name)
     url = f"http://localhost:{port}"
 
@@ -786,6 +921,7 @@ def ensure_server(project_dir, project_name, open_browser=False):
 
 def start_server(project_dir, project_name, port=0, open_browser=False):
     PUBLIC_DIR.mkdir(parents=True, exist_ok=True)
+    register_active_session(project_name, project_dir)
 
     # Auto-assign port if not specified
     if port == 0:

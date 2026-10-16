@@ -11,9 +11,12 @@
  */
 
 // Application State
+const urlParams = new URLSearchParams(window.location.search);
+const initialProject = urlParams.get('project') || urlParams.get('p') || 'default';
+
 const state = {
   currentView: 'cockpit',
-  project: 'default',
+  project: initialProject.trim(),
   branch: 'main',
   agents: [],
   tasks: [],
@@ -37,6 +40,12 @@ const state = {
   searchQuery: '',
   selectedNode: null
 };
+
+function getApiUrl(endpoint) {
+  const sep = endpoint.includes('?') ? '&' : '?';
+  const proj = state.project && state.project !== 'default' ? state.project : '';
+  return proj ? `${endpoint}${sep}project=${encodeURIComponent(proj)}` : endpoint;
+}
 
 // ─────────────────────────────────────────────────────────────
 // INITIALIZATION
@@ -190,7 +199,8 @@ function connectSSE() {
   }
 
   try {
-    evtSource = new EventSource('/api/stream');
+    const streamUrl = getApiUrl('/api/stream');
+    evtSource = new EventSource(streamUrl);
 
     evtSource.onopen = () => {
       lastHeartbeatTime = Date.now();
@@ -248,16 +258,22 @@ async function safeFetchJson(url, fallback = {}) {
 
 async function fetchInitialData() {
   try {
-    const [resStatus, resTasks, resFeed, resArtifacts, resMemories, resSentinel, resTester, resLearnings] = await Promise.all([
-      safeFetchJson('/api/status'),
-      safeFetchJson('/api/tasks'),
-      safeFetchJson('/api/feed'),
-      safeFetchJson('/api/artifacts'),
-      safeFetchJson('/api/memories'),
-      safeFetchJson('/api/sentinel'),
-      safeFetchJson('/api/tester'),
-      safeFetchJson('/api/learnings')
+    const [resStatus, resTasks, resFeed, resArtifacts, resMemories, resSentinel, resTester, resLearnings, resProjects] = await Promise.all([
+      safeFetchJson(getApiUrl('/api/status')),
+      safeFetchJson(getApiUrl('/api/tasks')),
+      safeFetchJson(getApiUrl('/api/feed')),
+      safeFetchJson(getApiUrl('/api/artifacts')),
+      safeFetchJson(getApiUrl('/api/memories')),
+      safeFetchJson(getApiUrl('/api/sentinel')),
+      safeFetchJson(getApiUrl('/api/tester')),
+      safeFetchJson(getApiUrl('/api/learnings')),
+      safeFetchJson('/api/projects')
     ]);
+
+    if (resStatus.project) {
+      state.project = resStatus.project;
+    }
+    updateProjectDropdown(resProjects);
 
     updateSwarmUI({
       project: resStatus.project || state.project,
@@ -280,24 +296,62 @@ async function fetchInitialData() {
   }
 }
 
+function updateProjectDropdown(data) {
+  const select = document.getElementById('projectSelect');
+  if (!select) return;
+
+  const projects = (data && data.projects) ? data.projects : [];
+  const currentProj = state.project || (data ? data.current : 'default');
+
+  let optionsHtml = '';
+  let foundCurrent = false;
+
+  projects.forEach(p => {
+    const isSelected = p.name === currentProj;
+    if (isSelected) foundCurrent = true;
+    const taskBadge = p.tasks > 0 ? `(${p.tasks} tareas)` : '(0 tareas)';
+    optionsHtml += `<option value="${escapeHtml(p.name)}" ${isSelected ? 'selected' : ''}>${escapeHtml(p.name)} ${taskBadge}</option>`;
+  });
+
+  if (!foundCurrent && currentProj && currentProj !== 'cargando...') {
+    optionsHtml = `<option value="${escapeHtml(currentProj)}" selected>${escapeHtml(currentProj)} (actual)</option>` + optionsHtml;
+  }
+
+  select.innerHTML = optionsHtml;
+}
+
+function onProjectSelect(newProject) {
+  if (!newProject || newProject === state.project) return;
+  state.project = newProject;
+
+  try {
+    const hash = window.location.hash || '';
+    const newUrl = `?project=${encodeURIComponent(newProject)}${hash}`;
+    history.replaceState(null, null, newUrl);
+  } catch (e) {}
+
+  connectSSE();
+  fetchInitialData();
+}
+
 async function fetchSentinelData() {
-  const data = await safeFetchJson('/api/sentinel');
+  const data = await safeFetchJson(getApiUrl('/api/sentinel'));
   updateSentinelUI(data);
 }
 
 async function fetchTesterData() {
-  const data = await safeFetchJson('/api/tester');
+  const data = await safeFetchJson(getApiUrl('/api/tester'));
   updateTesterUI(data);
 }
 
 async function fetchLearningsData() {
-  const data = await safeFetchJson('/api/learnings');
+  const data = await safeFetchJson(getApiUrl('/api/learnings'));
   updateLearningsUI(data);
 }
 
 async function fetchBrainGraph() {
   try {
-    const data = await safeFetchJson('/api/brain');
+    const data = await safeFetchJson(getApiUrl('/api/brain'));
     state.brain = data;
     const countEl = document.getElementById('brainNodesCount');
     if (countEl) countEl.textContent = data.nodes ? data.nodes.length : 0;
@@ -324,6 +378,10 @@ const ROSTER_CONFIG = {
 function updateSwarmUI(data) {
   if (data.project) {
     state.project = data.project;
+    const select = document.getElementById('projectSelect');
+    if (select && select.value !== data.project) {
+      select.value = data.project;
+    }
     const el = document.getElementById('projectName');
     if (el) el.textContent = data.project;
     document.title = `OpenCode Swarm [${data.project}]`;
@@ -459,6 +517,17 @@ function renderKanban(tasksList) {
       cols[k].innerHTML = htmls[k] || '<div class="empty-state">[ vacio ]</div>';
     }
   });
+
+  const totalTasks = counts.todo + counts.in_progress + counts.review + counts.completed;
+  if (totalTasks === 0 && cols.todo) {
+    cols.todo.innerHTML = `
+      <div class="empty-state" style="padding: 14px 10px; line-height: 1.5; text-align: left;">
+        <div style="color: var(--term-blue); font-weight: 600; margin-bottom: 6px;">[ SESION ACTIVA: ${escapeHtml(state.project)} ]</div>
+        <div style="color: var(--text-muted); font-size: 11px;">Esperando descomposicion de hitos desde terminal. Al procesar tareas con @orchestrator, apareceran en tiempo real en este tablero.</div>
+        <div style="margin-top: 8px; font-size: 10px; color: var(--text-dim);">Puedes cambiar de proyecto en el selector superior para ver hitos de otras sesiones.</div>
+      </div>
+    `;
+  }
 
   const countTodo = document.getElementById('countTodo');
   const countInProg = document.getElementById('countInProgress');

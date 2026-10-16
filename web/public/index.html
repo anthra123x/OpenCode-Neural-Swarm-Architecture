@@ -22,7 +22,10 @@
 
       <div class="workspace-pill" id="projectPill">
         <span class="ws-prefix">workspace:</span>
-        <span class="ws-name" id="projectName">cargando...</span>
+        <select id="projectSelect" class="project-selector" onchange="onProjectSelect(this.value)" title="Cambiar de proyecto para observar sus metricas">
+          <option value="cargando...">cargando...</option>
+        </select>
+        <span class="ws-name" id="projectName" style="display:none">cargando...</span>
         <span class="ws-colon">:</span>
         <span class="ws-branch" id="projectBranch">main</span>
       </div>

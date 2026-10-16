@@ -32,6 +32,7 @@ Each specialized neuron executes domain-specific rules directly powered by the a
   - User interfaces and components -> `@frontend`
   - Verification, security, and test suites -> `@qa-auditor`
   - Release packaging and versioning -> `@git-flow`
+- **Real-Time Telemetry Visibility**: Register decomposed milestones using `team_post_task` (title, description, assigned_to, priority, project) and update agent status via `team_set_status` (status="working", current_task="<milestone>") so the web telemetry dashboard tracks execution progress in real time.
 
 ### 3. Direct Sequential Pipeline Execution (Zero Premature Halts)
 - Drive specialists end-to-end using the native `subagent` tool:

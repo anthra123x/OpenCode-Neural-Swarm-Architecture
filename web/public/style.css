@@ -152,6 +152,33 @@ body.theme-linux {
   color: var(--term-blue);
   font-weight: 600;
 }
+.project-selector {
+  background: var(--bg-surface);
+  color: var(--term-blue);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  cursor: pointer;
+  outline: none;
+  max-width: 220px;
+  text-overflow: ellipsis;
+}
+.project-selector:hover {
+  border-color: var(--term-blue);
+}
+.project-selector:focus {
+  border-color: var(--term-blue);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+}
+.project-selector option {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
 .ws-colon {
   color: var(--text-dim);
 }
