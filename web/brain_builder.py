@@ -21,12 +21,12 @@ DEFAULT_TEAM_DIR = Path.home() / ".opencode" / "team"
 DEFAULT_MEM_DIR = Path.home() / ".opencode" / "memory"
 
 AGENT_METADATA = {
-    "orchestrator": {"color": "#8B5CF6", "glyph": "👑", "title": "Lead Architect"},
-    "backend":      {"color": "#3B82F6", "glyph": "⚡", "title": "Backend Specialist"},
-    "frontend":     {"color": "#EC4899", "glyph": "🎨", "title": "Frontend Specialist"},
-    "git-flow":     {"color": "#10B981", "glyph": "🌿", "title": "Git Flow Manager"},
-    "qa-auditor":   {"color": "#F59E0B", "glyph": "🛡️", "title": "QA & Security Auditor"},
-    "devops":       {"color": "#06B6D4", "glyph": "🐳", "title": "DevOps & Containers"}
+    "orchestrator": {"color": "#8B5CF6", "glyph": "SYS", "title": "Lead Architect"},
+    "backend":      {"color": "#3B82F6", "glyph": "API", "title": "Backend Specialist"},
+    "frontend":     {"color": "#EC4899", "glyph": "UI", "title": "Frontend Specialist"},
+    "git-flow":     {"color": "#10B981", "glyph": "GIT", "title": "Git Flow Manager"},
+    "qa-auditor":   {"color": "#F59E0B", "glyph": "QA", "title": "QA & Security Auditor"},
+    "devops":       {"color": "#06B6D4", "glyph": "OPS", "title": "DevOps & Containers"}
 }
 
 def get_db_connection(db_path):
@@ -435,16 +435,19 @@ def build_project_brain(project_name="default", workspace_dir=None):
 
         if is_checkpoint:
             m_color = "#A855F7" # Bright Violet for Checkpoints
-            m_label = f"💾 {m['key'][:26]}"
+            m_label = f"[CHK] {m['key'][:24]}"
         elif m["category"] == "architecture":
             m_color = "#8B5CF6"
-            m_label = f"🏛️ {m['key'][:26]}"
+            m_label = f"[ARCH] {m['key'][:24]}"
         elif m["category"] == "decision":
             m_color = "#F43F5E"
-            m_label = f"⚖️ {m['key'][:26]}"
+            m_label = f"[DEC] {m['key'][:24]}"
+        elif m["category"] == "learning" or "learning" in m.get("tags", "").lower():
+            m_color = "#10B981"
+            m_label = f"[LRN] {m['key'][:24]}"
         else:
             m_color = "#EAB308"
-            m_label = f"🧠 {m['key'][:26]}"
+            m_label = f"[MEM] {m['key'][:24]}"
 
         add_node(
             node_id=mem_id,

@@ -126,11 +126,19 @@ PORT_RANGE_END = 4060
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Multi-threaded HTTP server to handle simultaneous SSE streams and REST calls per project."""
     daemon_threads = True
+    allow_reuse_address = True
 
     def __init__(self, server_address, RequestHandlerClass, project_dir, project_name):
         super().__init__(server_address, RequestHandlerClass)
         self.project_dir = Path(project_dir).resolve()
         self.project_name = str(project_name)
+
+    def handle_error(self, request, client_address):
+        """Suppress routine socket disconnection errors from noisy logs."""
+        exc_type, _, _ = sys.exc_info()
+        if exc_type in (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+            return
+        super().handle_error(request, client_address)
 
     def get_branch(self):
         try:
@@ -347,6 +355,33 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
             })
             return
 
+        # 4b. API: Continuous Learnings & Feedback Loop (Isolated per project)
+        if url == "/api/learnings":
+            proj = self.server.project_name
+            mem_db_path = Path(os.environ.get("OPENCODE_MEMORY_DB", brain_builder.DEFAULT_MEM_DIR / "context_memory.db"))
+            conn = brain_builder.get_db_connection(mem_db_path)
+            learnings = []
+            if conn:
+                try:
+                    cur = conn.execute("""
+                        SELECT id, key, category, content, tags, project, updated_at
+                        FROM memories
+                        WHERE (project = ? OR project = 'global') AND (category = 'learning' OR key LIKE 'learning:%')
+                        ORDER BY updated_at DESC LIMIT 50
+                    """, (proj,))
+                    learnings = [dict(r) for r in cur.fetchall()]
+                finally:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+
+            self._send_json({
+                "project": proj,
+                "learnings": learnings
+            })
+            return
+
         # 5. API: Activity Feed (Isolated per project)
         if url == "/api/feed":
             proj = self.server.project_name
@@ -521,64 +556,72 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
         if url == "/api/stream":
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
-            self.send_header("Cache-Control", "no-cache")
+            self.send_header("Cache-Control", "no-cache, no-transform")
             self.send_header("Connection", "keep-alive")
             self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
 
             proj = self.server.project_name
             proj_dir = str(self.server.project_dir)
+            heartbeat_cycle = 0
 
             try:
                 while True:
-                    conn = team_server.get_db()
+                    agents = []
+                    messages = []
+                    tasks = []
                     try:
-                        cur_ag = conn.execute("""
-                            SELECT agent_name, status, current_task, blockers, window_id, last_heartbeat, updated_at
-                            FROM team_agents
-                            WHERE project = ? OR project = 'default'
-                            ORDER BY agent_name
-                        """, (proj,))
-                        agents = [dict(r) for r in cur_ag.fetchall()]
-                        now_utc = datetime.datetime.now(datetime.timezone.utc)
-                        for a in agents:
-                            time_val = a["last_heartbeat"] or a["updated_at"]
-                            a["relative_time"] = team_server.format_relative_time(time_val)
-                            if a.get("status") == "working" and time_val:
-                                try:
-                                    t = datetime.datetime.fromisoformat(time_val)
-                                    if t.tzinfo is None:
-                                        t = t.replace(tzinfo=datetime.timezone.utc)
-                                    if (now_utc - t).total_seconds() > 180:
-                                        a["status"] = "idle"
-                                        a["relative_time"] = f"{a['relative_time']} (inactivo)"
-                                except Exception:
-                                    pass
-
-                        cur_msg = conn.execute("""
-                            SELECT id, sender, message, category, priority, created_at
-                            FROM team_messages
-                            WHERE project = ? OR project = 'default'
-                            ORDER BY id DESC LIMIT 10
-                        """, (proj,))
-                        messages = [dict(r) for r in cur_msg.fetchall()]
-                        for m in messages:
-                            m["relative_time"] = team_server.format_relative_time(m["created_at"])
-
-                        cur_tasks = conn.execute("""
-                            SELECT id, title, description, assigned_to, status, priority, notes, updated_at
-                            FROM team_tasks
-                            WHERE project = ?
-                            ORDER BY id DESC LIMIT 15
-                        """, (proj,))
-                        tasks = [dict(r) for r in cur_tasks.fetchall()]
-                        for t in tasks:
-                            t["relative_time"] = team_server.format_relative_time(t["updated_at"])
-                    finally:
+                        conn = team_server.get_db()
                         try:
-                            conn.close()
-                        except Exception:
-                            pass
+                            cur_ag = conn.execute("""
+                                SELECT agent_name, status, current_task, blockers, window_id, last_heartbeat, updated_at
+                                FROM team_agents
+                                WHERE project = ? OR project = 'default'
+                                ORDER BY agent_name
+                            """, (proj,))
+                            agents = [dict(r) for r in cur_ag.fetchall()]
+                            now_utc = datetime.datetime.now(datetime.timezone.utc)
+                            for a in agents:
+                                time_val = a["last_heartbeat"] or a["updated_at"]
+                                a["relative_time"] = team_server.format_relative_time(time_val)
+                                if a.get("status") == "working" and time_val:
+                                    try:
+                                        t = datetime.datetime.fromisoformat(time_val)
+                                        if t.tzinfo is None:
+                                            t = t.replace(tzinfo=datetime.timezone.utc)
+                                        if (now_utc - t).total_seconds() > 180:
+                                            a["status"] = "idle"
+                                            a["relative_time"] = f"{a['relative_time']} (inactivo)"
+                                    except Exception:
+                                        pass
+
+                            cur_msg = conn.execute("""
+                                SELECT id, sender, message, category, priority, created_at
+                                FROM team_messages
+                                WHERE project = ? OR project = 'default'
+                                ORDER BY id DESC LIMIT 10
+                            """, (proj,))
+                            messages = [dict(r) for r in cur_msg.fetchall()]
+                            for m in messages:
+                                m["relative_time"] = team_server.format_relative_time(m["created_at"])
+
+                            cur_tasks = conn.execute("""
+                                SELECT id, title, description, assigned_to, status, priority, notes, updated_at
+                                FROM team_tasks
+                                WHERE project = ?
+                                ORDER BY id DESC LIMIT 15
+                            """, (proj,))
+                            tasks = [dict(r) for r in cur_tasks.fetchall()]
+                            for t in tasks:
+                                t["relative_time"] = team_server.format_relative_time(t["updated_at"])
+                        finally:
+                            try:
+                                conn.close()
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
 
                     snapshot = {
                         "project": proj,
@@ -593,12 +636,16 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
 
                     try:
                         self.wfile.write(f"data: {data_str}\n\n".encode("utf-8"))
+                        heartbeat_cycle += 1
+                        if heartbeat_cycle >= 3:
+                            self.wfile.write(b": keepalive\n\n")
+                            heartbeat_cycle = 0
                         self.wfile.flush()
-                    except (BrokenPipeError, ConnectionResetError, OSError):
+                    except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
                         return
 
                     time.sleep(2)
-            except (BrokenPipeError, ConnectionResetError, OSError):
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError, OSError):
                 return
             except Exception:
                 return
@@ -608,157 +655,17 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
-        if not self._request_is_local():
-            self.send_error(403, "Local dashboard access only")
-            return
-        url = self.path.split("?")[0]
-        content_length = int(self.headers.get("Content-Length", 0))
-        post_data = self.rfile.read(content_length).decode("utf-8") if content_length > 0 else "{}"
-        try:
-            body = json.loads(post_data)
-        except Exception:
-            body = {}
-
-        if url == "/api/task/create":
-            title = body.get("title", "").strip()
-            if not title:
-                self._send_json({"error": "Task title required"}, status=400)
-                return
-            res = team_server.tool_team_post_task({
-                "title": title,
-                "description": body.get("description", ""),
-                "assigned_to": body.get("assigned_to", ""),
-                "priority": body.get("priority", "normal"),
-                "project": self.server.project_name
-            })
-            self._send_json({"success": True, "message": res})
-            return
-
-        if url == "/api/broadcast":
-            msg = body.get("message", "").strip()
-            sender = body.get("sender", "orchestrator").strip()
-            if not msg:
-                self._send_json({"error": "Message required"}, status=400)
-                return
-            res = team_server.tool_team_broadcast({
-                "sender": sender,
-                "message": msg,
-                "category": body.get("category", "announcement"),
-                "priority": body.get("priority", "normal"),
-                "project": self.server.project_name
-            })
-            self._send_json({"success": True, "message": res})
-            return
-
-        if url == "/api/brain/scan":
-            proj = self.server.project_name
-            proj_dir = str(self.server.project_dir)
-            if mem_server:
-                try:
-                    mem_server.tool_auto_sync_project_memory({"project": proj, "workspace_dir": proj_dir})
-                except Exception:
-                    pass
-            brain_data = brain_builder.build_project_brain(proj, proj_dir)
-            self._send_json(brain_data)
-            return
-
-        if url == "/api/brain/checkpoint":
-            proj = self.server.project_name
-            proj_dir = str(self.server.project_dir)
-            summary = body.get("summary", "Checkpoint manual desde GetBrain Cockpit").strip()
-            decisions = body.get("decisions", "").strip()
-            next_steps = body.get("next_steps", "").strip()
-            active_task = body.get("active_task", "").strip()
-            files_mod = body.get("files_modified", "").strip()
-
-            msg = "Checkpoint saved"
-            if mem_server:
-                try:
-                    msg = mem_server.tool_checkpoint_session({
-                        "project": proj,
-                        "summary": summary,
-                        "decisions": decisions,
-                        "active_task": active_task,
-                        "next_steps": next_steps,
-                        "files_modified": files_mod
-                    })
-                except Exception as e:
-                    msg = f"Error saving checkpoint: {e}"
-
-            brain_data = brain_builder.build_project_brain(proj, proj_dir)
-            self._send_json({"success": True, "message": msg, "brain": brain_data})
-            return
-
-        if url == "/api/brain/sync":
-            proj = self.server.project_name
-            proj_dir = str(self.server.project_dir)
-            msg = "Context synced"
-            if mem_server:
-                try:
-                    msg = mem_server.tool_auto_sync_project_memory({
-                        "project": proj,
-                        "workspace_dir": proj_dir
-                    })
-                except Exception as e:
-                    msg = f"Error syncing: {e}"
-
-            brain_data = brain_builder.build_project_brain(proj, proj_dir)
-            self._send_json({"success": True, "message": msg, "brain": brain_data})
-            return
-
-        if url == "/api/sentinel/audit":
-            if not sentinel_server:
-                self._send_json({"error": "Sentinel MCP server not available"}, status=503)
-                return
-            res = sentinel_server.tool_sentinel_audit_task(body)
-            self._send_json({"result": res})
-            return
-
-        if url == "/api/sentinel/violation":
-            if not sentinel_server:
-                self._send_json({"error": "Sentinel MCP server not available"}, status=503)
-                return
-            res = sentinel_server.tool_sentinel_record_violation(body)
-            self._send_json({"result": res})
-            return
-
-        if url == "/api/sentinel/resolve":
-            if not sentinel_server:
-                self._send_json({"error": "Sentinel MCP server not available"}, status=503)
-                return
-            res = sentinel_server.tool_sentinel_resolve_violation(body)
-            self._send_json({"result": res})
-            return
-
-        if url == "/api/tester/run":
-            if not tester_server:
-                self._send_json({"error": "Tester MCP server not available"}, status=503)
-                return
-            target_path = body.get("path", "")
-            runner = body.get("runner", "auto")
-            res_text = tester_server.tool_tester_run_suite({
-                "project": self.server.project_name,
-                "path": target_path,
-                "runner": runner
-            })
-            self._send_json({"result": res_text})
-            return
-
-        if url == "/api/tester/probe":
-            if not tester_server:
-                self._send_json({"error": "Tester MCP server not available"}, status=503)
-                return
-            target_url = body.get("url", "")
-            method = body.get("method", "GET")
-            res_text = tester_server.tool_tester_probe_endpoint({
-                "project": self.server.project_name,
-                "url": target_url,
-                "method": method
-            })
-            self._send_json({"result": res_text})
-            return
-
-        self._send_json({"error": "Not Found"}, status=404)
+        """
+        Pure telemetry mode enforcement.
+        The web panel is strictly read-only and rejects any attempt to mutate state or inject tasks.
+        """
+        self.send_response(405)
+        self.send_header("Allow", "GET, HEAD, OPTIONS")
+        self._send_json({
+            "error": "El panel web opera en modo exclusivo de telemetria pasiva. Las mutaciones y ejecuciones son gestionadas unicamente por los subagentes cognitivos en OpenCode.",
+            "mode": "read_only_telemetry",
+            "status": "blocked"
+        }, status=405)
 
 def check_server_status(port, timeout=0.35):
     """Probes http://127.0.0.1:<port>/api/status and returns its dict payload or None."""
@@ -926,7 +833,7 @@ def start_server(project_dir, project_name, port=0, open_browser=False):
     url = f"http://localhost:{port}"
 
     print("╔══════════════════════════════════════════════════════════════╗")
-    print("║  ⚡ ᴏᴘᴇɴᴄᴏᴅᴇ ⟪ ꜱᴡᴀʀᴍ ᴇᴅɪᴛɪᴏɴ ⟫  |  Web Cockpit & GetBrain   ║")
+    print("║  OPENCODE [SWARM EDITION] | Web Cockpit & GetBrain          ║")
     print("╚══════════════════════════════════════════════════════════════╝")
     print(f"  → Project:   {project_name}")
     print(f"  → Directory: {project_dir}")

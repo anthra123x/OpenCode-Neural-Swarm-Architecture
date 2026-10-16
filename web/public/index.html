@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.2.1">
+  <link rel="stylesheet" href="style.css?v=2.3.0">
 </head>
 <body class="theme-linux">
   <!-- Minimalist Linux Terminal Top Bar -->
@@ -17,7 +17,7 @@
       <div class="brand-block">
         <span class="prompt-symbol">~</span>
         <span class="brand-name">opencode-swarm</span>
-        <span class="brand-badge">v2.0</span>
+        <span class="brand-badge">telemetry v2.3</span>
       </div>
 
       <div class="workspace-pill" id="projectPill">
@@ -25,6 +25,10 @@
         <span class="ws-name" id="projectName">cargando...</span>
         <span class="ws-colon">:</span>
         <span class="ws-branch" id="projectBranch">main</span>
+      </div>
+
+      <div class="telemetry-mode-pill" title="Modo exclusivo de monitoreo y observabilidad pasiva">
+        <span class="mode-tag">[MODO TELEMETRIA // SOLO MONITOREO]</span>
       </div>
     </div>
 
@@ -39,16 +43,26 @@
         <span>getbrain</span>
         <span class="tab-counter" id="brainNodesCount">0</span>
       </button>
-      <button class="nav-tab" id="tabTester" onclick="switchView('tester')">
+      <button class="nav-tab" id="tabSentinel" onclick="switchView('sentinel')">
         <span class="tab-index">03</span>
-        <span>telemetry</span>
+        <span>sentinel</span>
+        <span class="tab-counter" id="sentinelScoreBadge">100%</span>
+      </button>
+      <button class="nav-tab" id="tabTester" onclick="switchView('tester')">
+        <span class="tab-index">04</span>
+        <span>tester</span>
         <span class="tab-counter" id="testPassCount">0</span>
+      </button>
+      <button class="nav-tab" id="tabLearnings" onclick="switchView('learnings')">
+        <span class="tab-index">05</span>
+        <span>learnings</span>
+        <span class="tab-counter" id="learningsCountBadge">0</span>
       </button>
     </nav>
 
     <!-- Header Telemetry & Status Badges -->
     <div class="header-right">
-      <div class="status-pill" id="sentinelPill" title="Swarm Sentinel: Supervisor continuo de reglas">
+      <div class="status-pill" id="sentinelPill" onclick="switchView('sentinel')" title="Swarm Sentinel: Supervisor continuo de reglas">
         <span class="dot dot-green"></span>
         <span id="sentinelStatusText">SENTINEL: 100%</span>
       </div>
@@ -56,8 +70,8 @@
         <span class="dot dot-blue"></span>
         <span id="testerStatusText">TESTS: HEALTHY</span>
       </div>
-      <div class="status-pill sse-pill" title="Server-Sent Events: Transmisión en tiempo real">
-        <span class="dot dot-pulse"></span>
+      <div class="status-pill sse-pill" id="connectionPill" title="Watchdog de conexion SSE / Failover de sondeo continuo">
+        <span class="dot dot-pulse" id="connPulseDot"></span>
         <span id="liveStatusText">SSE: LIVE</span>
       </div>
       <div class="clock-display" id="liveClock">00:00:00</div>
@@ -75,13 +89,13 @@
         <div class="section-title-bar">
           <div class="section-title">
             <span class="cli-prompt">//</span>
-            <h2>ROSTER DE SUB-AGENTES ESPECIALIZADOS</h2>
+            <h2>ROSTER DE NEURONAS COGNITIVAS & SUB-AGENTES</h2>
           </div>
           <div class="section-badge" id="activeAgentsBadge">0 ACTIVOS</div>
         </div>
 
         <div class="agents-grid" id="agentsGrid">
-          <div class="agent-skeleton">[ ... cargando telemetría del enjambre ... ]</div>
+          <div class="agent-skeleton">[ cargando telemetria del enjambre... ]</div>
         </div>
       </div>
 
@@ -93,7 +107,7 @@
           <div class="card-header">
             <div class="card-title">
               <span class="cli-prompt">//</span>
-              <h3>TABLERO DE TAREAS CROSS-SESIÓN</h3>
+              <h3>TABLERO DE TAREAS CROSS-SESION (READ-ONLY)</h3>
             </div>
             <div class="filter-pills" id="kanbanFilters">
               <span class="pill active" onclick="filterTasks('all')">all</span>
@@ -143,13 +157,13 @@
           <div class="card-header">
             <div class="card-title">
               <span class="cli-prompt">//</span>
-              <h3>REGISTRO DE ACTIVIDAD EN TIEMPO REAL</h3>
+              <h3>REGISTRO DE ACTIVIDAD EN TIEMPO REAL (HANDOFF BUS)</h3>
             </div>
-            <span class="feed-sub">bus / pases de guardia</span>
+            <span class="feed-sub">pases de guardia / disparadores reactivos</span>
           </div>
 
           <div class="feed-stream terminal-feed" id="feedStream">
-            <div class="feed-empty">[ ... sin eventos recientes en el bus ... ]</div>
+            <div class="feed-empty">[ sin eventos recientes en el bus ]</div>
           </div>
         </div>
 
@@ -163,7 +177,7 @@
           <div class="card-header">
             <div class="card-title">
               <span class="cli-prompt">//</span>
-              <h3>CONTRATOS & ESPECIFICACIONES</h3>
+              <h3>CONTRATOS & ESPECIFICACIONES COMPARTIDAS</h3>
             </div>
             <span class="feed-sub" id="artifactsCountBadge">0 contratos</span>
           </div>
@@ -172,12 +186,12 @@
           </div>
         </div>
 
-        <!-- Context Memories -->
+        <!-- Context Memories & Checkpoints -->
         <div class="panel-card">
           <div class="card-header">
             <div class="card-title">
               <span class="cli-prompt">//</span>
-              <h3>MEMORIA PERSISTENTE DE CONTEXTO (FTS5)</h3>
+              <h3>MEMORIA PERSISTENTE DE CONTEXTO & CHECKPOINTS (FTS5)</h3>
             </div>
             <span class="feed-sub" id="memoriesCountBadge">0 registros</span>
           </div>
@@ -190,7 +204,7 @@
 
     </section>
 
-    <!-- View 2: GETBRAIN KNOWLEDGE GRAPH (SUPERVISION PURA) -->
+    <!-- VIEW 2: GETBRAIN KNOWLEDGE GRAPH (SUPERVISION PURA) -->
     <section id="viewBrain" class="view-panel">
       
       <div class="brain-wrapper">
@@ -210,12 +224,12 @@
               <span class="dot dot-gray"></span> memorias
             </button>
             <button class="filter-btn active" data-type="module" onclick="toggleFilter('module')">
-              <span class="dot dot-dim"></span> módulos
+              <span class="dot dot-dim"></span> modulos
             </button>
           </div>
 
           <div class="toolbar-info">
-            <span class="hint-text">arrastrar para mover · rueda para zoom · clic en nodo para detalles</span>
+            <span class="hint-text">arrastrar para inspeccionar · rueda para zoom · clic en nodo para detalles</span>
           </div>
         </div>
 
@@ -226,13 +240,13 @@
           <aside class="node-inspector" id="nodeInspector" style="display: none;">
             <div class="inspector-header">
               <div class="inspector-badge" id="inspBadge">NODO</div>
-              <button class="btn-close" onclick="closeInspector()" title="Cerrar (ESC)">[✕ ESC]</button>
+              <button class="btn-close" onclick="closeInspector()" title="Cerrar (ESC)">[x ESC]</button>
             </div>
             <div class="inspector-body">
               <h2 class="insp-title" id="inspTitle"></h2>
               <div class="insp-meta" id="inspMeta"></div>
               <div class="insp-section">
-                <label>Detalles / Especificación:</label>
+                <label>Detalles / Especificacion:</label>
                 <div class="insp-content" id="inspContent"></div>
               </div>
               <div class="insp-section">
@@ -249,25 +263,111 @@
             <div class="legend-item"><span class="legend-dot task"></span> tareas</div>
             <div class="legend-item"><span class="legend-dot artifact"></span> contratos</div>
             <div class="legend-item"><span class="legend-dot memory"></span> memorias</div>
-            <div class="legend-item"><span class="legend-dot module"></span> módulos</div>
+            <div class="legend-item"><span class="legend-dot module"></span> modulos</div>
           </div>
         </div>
       </div>
 
     </section>
 
-    <!-- VIEW 3: SYSTEM TELEMETRY & AUTOMATED VERIFICATION (100% PURE OBSERVABILITY) -->
-    <section id="viewTester" class="view-panel">
-      <!-- Tester Hero Status (Passive Telemetry Only) -->
+    <!-- VIEW 3: SWARM SENTINEL COMPLIANCE & RULES (AUDITORIA CONTINUA) -->
+    <section id="viewSentinel" class="view-panel">
+      <!-- Sentinel Hero Status -->
       <div class="panel-section" style="margin-bottom: 14px;">
         <div class="telemetry-hero">
           <div>
             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
               <span class="cli-prompt">//</span>
-              <h2 style="margin: 0; font-size: 13px; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.5px;">TELEMETRÍA DE PRUEBAS & VIGILANCIA EN TIEMPO REAL</h2>
+              <h2 style="margin: 0; font-size: 13px; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.5px;">SWARM SENTINEL // SUPERVISION CONTINUA DE CALIDAD & SEGURIDAD</h2>
             </div>
             <p style="margin: 0; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
-              Monitor pasivo: streaming continuo de suites de test, sondeos de endpoints y validación de reglas de ingeniería.
+              Auditor de calidad en tiempo real: cumplimiento estricto de TDD (>=80%), higiene de secretos OWASP, Conventional Commits y 6 etapas de verificacion.
+            </p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span id="sentinelHeroBadge" class="health-badge healthy">100% COMPLIANT</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sentinel Metrics Grid -->
+      <div class="telemetry-metrics-grid">
+        <div class="metric-card">
+          <div class="m-label">PUNTUACION DE CUMPLIMIENTO</div>
+          <div class="m-val val-green" id="mSentinelScore">100%</div>
+          <div class="m-sub" id="mSentinelScoreSub">Certificacion de calidad activa</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">REGLAS DE INGENIERIA</div>
+          <div class="m-val val-blue" id="mSentinelRulesCount">7 ACTIVAS</div>
+          <div class="m-sub">TDD, OWASP, Commits, QA Loop</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">TOTAL AUDITORIAS</div>
+          <div class="m-val" id="mSentinelAuditsCount">0 REGISTRADAS</div>
+          <div class="m-sub">Revisiones automáticas de entregables</div>
+        </div>
+        <div class="metric-card">
+          <div class="m-label">INFRACCIONES ABIERTAS</div>
+          <div class="m-val" id="mSentinelViolationsCount">0 DETECTADAS</div>
+          <div class="m-sub">Bloqueos de calidad pendientes</div>
+        </div>
+      </div>
+
+      <!-- Split View: Audit History on Left, Rulebook on Right -->
+      <div class="dashboard-split" style="margin-top: 14px;">
+        <!-- Left: Recent Audits Feed -->
+        <div class="panel-card" style="flex: 1.2;">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="cli-prompt">//</span>
+              <h3>HISTORIAL DE AUDITORIAS DE ENTREGABLES</h3>
+            </div>
+            <span class="feed-sub" id="auditsListBadge">0 auditorias</span>
+          </div>
+          <div class="card-body" id="sentinelAuditsList" style="max-height: 580px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <div class="empty-state">[ sin auditorias registradas en esta sesion ]</div>
+          </div>
+        </div>
+
+        <!-- Right: Active Rulebook & Open Violations -->
+        <div class="panel-card" style="flex: 1;">
+          <div class="card-header">
+            <div class="card-title">
+              <span class="cli-prompt">//</span>
+              <h3>REGLAS DE INGENIERIA ENFORCADAS</h3>
+            </div>
+            <span class="feed-sub" id="rulesCountSub">7 reglas</span>
+          </div>
+          <div id="sentinelRulebookList" style="max-height: 300px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <!-- Rendered dynamically -->
+          </div>
+
+          <div class="card-header" style="border-top: 1px solid var(--border); margin-top: 8px;">
+            <div class="card-title">
+              <span class="cli-prompt">//</span>
+              <h3>INFRACCIONES & BLOQUEOS ABIERTOS</h3>
+            </div>
+          </div>
+          <div id="sentinelViolationsList" style="max-height: 200px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+            <div class="empty-state">[ sin infracciones abiertas // calidad verificada ]</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: SYSTEM TESTER TELEMETRY & VERIFICATION -->
+    <section id="viewTester" class="view-panel">
+      <!-- Tester Hero Status -->
+      <div class="panel-section" style="margin-bottom: 14px;">
+        <div class="telemetry-hero">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span class="cli-prompt">//</span>
+              <h2 style="margin: 0; font-size: 13px; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.5px;">TELEMETRIA DE PRUEBAS & VIGILANCIA EN TIEMPO REAL</h2>
+            </div>
+            <p style="margin: 0; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+              Monitor pasivo: streaming continuo de suites de test, sondeos de endpoints y verificacion de componentes.
             </p>
           </div>
           <div style="display: flex; align-items: center; gap: 10px;">
@@ -281,12 +381,12 @@
         <div class="metric-card">
           <div class="m-label">ESTADO DE ASERCIONES</div>
           <div class="m-val val-green" id="mValAssertions">100% GREEN</div>
-          <div class="m-sub" id="mSubAssertions">0 fallos de regresión</div>
+          <div class="m-sub" id="mSubAssertions">0 fallos de regresion</div>
         </div>
         <div class="metric-card">
-          <div class="m-label">VIGILANCIA SENTINEL</div>
-          <div class="m-val val-blue" id="mValSentinel">100% COMPLIANT</div>
-          <div class="m-sub" id="mSubSentinel">7 reglas activas enforcadas</div>
+          <div class="m-label">RUNNER DETECTADO</div>
+          <div class="m-val val-blue" id="mValRunner">AUTO</div>
+          <div class="m-sub" id="mSubRunner">deteccion contextual</div>
         </div>
         <div class="metric-card">
           <div class="m-label">INFRAESTRUCTURA MCP</div>
@@ -296,11 +396,11 @@
         <div class="metric-card">
           <div class="m-label">MODO OPERATIVO</div>
           <div class="m-val">MONITOR PASIVO</div>
-          <div class="m-sub">cero intervención manual</div>
+          <div class="m-sub">solo lectura // cero mutacion</div>
         </div>
       </div>
 
-      <!-- Split View: Runs on Left, Sentinel Rules & Probes on Right -->
+      <!-- Split View: Runs on Left, Probes and Components on Right -->
       <div class="dashboard-split" style="margin-top: 14px;">
         <!-- Left: Test Suite Runs -->
         <div class="panel-card" style="flex: 1.2;">
@@ -316,39 +416,104 @@
           </div>
         </div>
 
-        <!-- Right: Swarm Sentinel Rules & Endpoints/Components -->
+        <!-- Right: Endpoint Probes & Component Checks -->
         <div class="panel-card" style="flex: 1;">
-          <!-- Swarm Sentinel Rules Enforced -->
           <div class="card-header">
             <div class="card-title">
               <span class="cli-prompt">//</span>
-              <h3>REGLAS SWARM SENTINEL (AUDITORÍA CONTINUA)</h3>
+              <h3>SONDEOS DE ENDPOINTS LOCALES & LATENCIA</h3>
             </div>
-            <span class="feed-sub" id="sentinelRulesCount">7 reglas</span>
           </div>
-          <div id="sentinelRulesList" style="max-height: 280px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
-            <!-- Rendered dynamically by JS -->
+          <div id="endpointProbesList" style="max-height: 240px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
+            <div class="empty-state">[ sin sondeos recientes ]</div>
           </div>
 
-          <!-- Endpoint Probes & Component Checks -->
           <div class="card-header" style="border-top: 1px solid var(--border); margin-top: 8px;">
             <div class="card-title">
               <span class="cli-prompt">//</span>
-              <h3>SONDEOS DE ENDPOINTS LOCALES & COMPONENTES</h3>
+              <h3>VERIFICACIONES DE COMPONENTES</h3>
             </div>
           </div>
-          <div id="endpointProbesList" style="max-height: 150px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
-            <div class="empty-state">[ sin sondeos recientes ]</div>
-          </div>
-          <div id="componentChecksList" style="max-height: 150px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--border);">
+          <div id="componentChecksList" style="max-height: 240px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 6px;">
             <div class="empty-state">[ sin verificaciones de componentes ]</div>
           </div>
         </div>
       </div>
     </section>
 
+    <!-- VIEW 5: CONTINUOUS LEARNINGS & FEEDBACK LOOP ARCHIVE -->
+    <section id="viewLearnings" class="view-panel">
+      <!-- Learnings Hero Status -->
+      <div class="panel-section" style="margin-bottom: 14px;">
+        <div class="telemetry-hero">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+              <span class="cli-prompt">//</span>
+              <h2 style="margin: 0; font-size: 13px; font-weight: 700; font-family: var(--font-mono); letter-spacing: 0.5px;">BUCLE DE RETROALIMENTACION CONTINUA & INSTINTOS ADQUIRIDOS</h2>
+            </div>
+            <p style="margin: 0; font-size: 11px; color: var(--text-muted); font-family: var(--font-mono);">
+              Memoria evolutiva del enjambre: captura heurísticas, soluciones a escollos técnicos y reglas aprendidas para auto-mantenerse y no repetir errores.
+            </p>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span class="health-badge healthy" id="learningsTotalBadge">0 INSTINTOS</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Learnings Filter Toolbar -->
+      <div class="panel-card" style="margin-bottom: 14px; padding: 12px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+          <div class="filter-pills" id="learningsCategoryFilters">
+            <span class="pill active" onclick="filterLearnings('all')">all</span>
+            <span class="pill" onclick="filterLearnings('architecture')">architecture</span>
+            <span class="pill" onclick="filterLearnings('security')">security</span>
+            <span class="pill" onclick="filterLearnings('performance')">performance</span>
+            <span class="pill" onclick="filterLearnings('gotcha')">gotcha</span>
+            <span class="pill" onclick="filterLearnings('testing')">testing</span>
+            <span class="pill" onclick="filterLearnings('frontend')">frontend</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="cli-prompt">//</span>
+            <input type="text" id="learningsSearchInput" placeholder="buscar en instintos aprendidos..." oninput="onSearchLearnings(this.value)" class="telemetry-search-input">
+          </div>
+        </div>
+      </div>
+
+      <!-- Learnings Grid / List -->
+      <div class="learnings-grid" id="learningsContainer">
+        <div class="empty-state">[ sin aprendizajes registrados todavia // el enjambre captura lecciones en cada iteracion ]</div>
+      </div>
+    </section>
+
   </main>
 
-  <script src="app.js?v=2.2.1"></script>
+  <!-- Read-Only Task Details Modal -->
+  <div class="modal-backdrop" id="taskModal" style="display: none;" onclick="if(event.target === this) closeTaskModal()">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-badge" id="modalTaskBadge">TAREA #0</div>
+        <button class="btn-close" onclick="closeTaskModal()">[x ESC]</button>
+      </div>
+      <div class="modal-body">
+        <h3 class="modal-title" id="modalTaskTitle"></h3>
+        <div class="modal-meta" id="modalTaskMeta"></div>
+        <div class="modal-section">
+          <label>DESCRIPCION:</label>
+          <div class="modal-desc" id="modalTaskDesc"></div>
+        </div>
+        <div class="modal-section">
+          <label>NOTAS DE EJECUCION:</label>
+          <div class="modal-notes" id="modalTaskNotes"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="modal-readonly-tag">[SOLO LECTURA // ESTADO GESTIONADO POR SUBAGENTES]</span>
+        <button class="btn-secondary" onclick="closeTaskModal()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=2.3.0"></script>
 </body>
 </html>
