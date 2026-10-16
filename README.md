@@ -194,31 +194,24 @@ opencode_config/
 ├── mcp/                     # Native protocol servers
 ├── scripts/                 # Maintenance & patch utilities
 ├── skills/                  # Specialized engineering skills
-├── templates/               # Session launcher wrappers
-└── tests/                   # End-to-end verification test suite
+└── templates/               # Session launcher wrappers
 ```
 
 ---
 
-## 11. Verification & Testing
+## 11. System Health & Installation Verification
 
-To execute the automated end-to-end test suite:
+To verify the installation on any host machine:
 
 ```bash
-# Run complete swarm workflow test
-python3 tests/test_full_swarm_workflow.py
+# Run comprehensive diagnostic checks
+ecc doctor
 
-# Run multi-window concurrency test
-python3 tests/test_multi_window_swarm.py
+# Inspect active agents, MCP servers, and skills
+ecc status
 
-# Run self-maintenance and anti-sabotage test
-python3 tests/test_swarm_self_maintenance_and_anti_sabotage.py
-
-# Run swarm stress and continuous training test
-python3 tests/test_swarm_stress_and_training.py
-
-# Run deep execution and multi-neuron pipeline stress test
-python3 tests/test_swarm_deep_execution_and_stress.py
+# Verify configuration integrity
+ecc validate
 ```
 
-All test suites execute without external dependencies, validating workflow continuity, multi-terminal concurrency, and zero-compaction state integrity.
+The `ecc doctor` and `ecc validate` commands verify system requirements, SQLite FTS5 capability, subagent configurations, and MCP bindings across any Linux or macOS environment.

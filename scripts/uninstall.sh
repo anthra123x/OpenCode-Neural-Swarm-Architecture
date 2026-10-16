@@ -32,6 +32,7 @@ echo "This will remove:"
 echo "  • $CONFIG_DIR"
 echo "  • $SKILLS_DIR"
 echo "  • $HOME/.local/bin/ecc"
+echo "  • $HOME/.local/bin/opencode-*"
 echo ""
 echo "Backups will be created before removal."
 echo ""
@@ -44,7 +45,8 @@ fi
 # Backup
 echo ""
 info "Creating backups..."
-local bk_config=""; local bk_skills=""
+bk_config=""
+bk_skills=""
 if [ -d "$CONFIG_DIR" ]; then
   bk_config=$(backup_dir "$CONFIG_DIR")
   log "Config backed up: $bk_config"
@@ -59,10 +61,10 @@ echo ""
 info "Removing files..."
 rm -rf "$CONFIG_DIR" 2>/dev/null && log "Removed config: $CONFIG_DIR" || warn "Config not found"
 rm -rf "$SKILLS_DIR" 2>/dev/null && log "Removed skills: $SKILLS_DIR" || warn "Skills not found"
-rm -f "$HOME/.local/bin/ecc" 2>/dev/null && log "Removed CLI: $HOME/.local/bin/ecc" || true
+rm -f "$HOME/.local/bin/ecc" "$HOME/.local/bin/opencode-swarm" "$HOME/.local/bin/opencode-"* 2>/dev/null && log "Removed CLI tools and wrappers from $HOME/.local/bin" || true
 
 echo ""
-echo -e "${C_GREEN}${C_BOLD}✓ Uninstall complete${C_NC}"
+echo -e "${C_GREEN}${C_BOLD}Uninstall complete${C_NC}"
 echo ""
 echo "Backups available at:"
 [ -n "$bk_config" ] && echo "  $bk_config"

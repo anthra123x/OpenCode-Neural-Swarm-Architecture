@@ -39,63 +39,15 @@ SKILLS_PATH=$(inputbox "Skills path" "Skills directory:" "$SKILLS_DIR")
 
 # ─── Generate opencode.jsonc ───
 if yesno "Generate config" "Regenerate opencode.jsonc with Swarm settings?"; then
-  cat > "$CONFIG_PATH/opencode.jsonc" <<EOF
-{
-  "\$schema": "https://opencode.ai/config.json",
-  "default_agent": "orchestrator",
-  "instructions": [
-    "INSTRUCTIONS.md",
-    "AGENTS.md"
-  ],
-  "skills": {
-    "paths": [
-      "$SKILLS_PATH"
-    ]
-  },
-  "agent": {
-    "orchestrator": {
-      "mode": "primary",
-      "color": "#8B5CF6",
-      "description": "Team Lead & Orchestrator. Analyzes user requirements, plans architecture, delegates tasks to specialists (@backend, @frontend, @git-flow, @qa-auditor), and synthesizes deliverables."
-    },
-    "backend": {
-      "mode": "subagent",
-      "color": "#3B82F6",
-      "description": "Specialized Backend Engineer. Builds robust APIs, database schemas and migrations (PostgreSQL, Prisma, MySQL, JPA), business logic, and backend unit tests."
-    },
-    "frontend": {
-      "mode": "subagent",
-      "color": "#EC4899",
-      "description": "Specialized Frontend & UI/UX Engineer. Builds modern responsive web interfaces with curated typography, micro-animations, accessible components, and anti-slop design."
-    },
-    "git-flow": {
-      "mode": "subagent",
-      "color": "#10B981",
-      "description": "Specialized Git and GitHub Workflow Manager. Manages branch lifecycles, conventional semantic commits, PR reviews and summaries, merge conflict resolution, and release hygiene."
-    },
-    "qa-auditor": {
-      "mode": "subagent",
-      "color": "#F59E0B",
-      "description": "Specialized Quality Assurance & Verification Auditor. Audits test suites, ensures coverage >=80%, conducts security and production-readiness checks, and detects AI regressions."
-    },
-    "devops": {
-      "mode": "subagent",
-      "color": "#06B6D4",
-      "description": "Specialized DevOps and Infrastructure Engineer. Crafts lean multi-stage Dockerfiles, Docker Compose setups, non-root configurations, and CI/CD pipelines."
-    }
-  },
-  "permission": {
-    "skill": {
-      "*": "allow"
-    }
-  },
-  "compaction": {
-    "auto": true,
-    "tail_turns": 30
-  }
-}
-EOF
-  log "Regenerated opencode.jsonc"
+  REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+  if [ -f "$REPO_ROOT/config/opencode.jsonc" ]; then
+    cp "$REPO_ROOT/config/opencode.jsonc" "$CONFIG_PATH/opencode.jsonc"
+    cp "$REPO_ROOT/config/opencode.jsonc" "$CONFIG_PATH/opencode.json"
+  elif [ -f "$CONFIG_PATH/opencode.jsonc" ]; then
+    # Keep existing if already present
+    log "Preserved current opencode.jsonc"
+  fi
+  log "Regenerated opencode.jsonc with full MCP Swarm suite"
 fi
 
 # ─── Summary ───

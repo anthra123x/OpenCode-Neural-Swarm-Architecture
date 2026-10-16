@@ -313,9 +313,9 @@ if [ -d "$REPO_DIR/templates" ]; then
   cp -r "$REPO_DIR/templates/"* "$CONFIG_DIR/templates/" 2>/dev/null || true
 fi
 
-# 11. Customize OpenCode interface (Minecraft-style Swarm Edition logo & Web Cockpit footer)
+# 11. Customize OpenCode interface (Minecraft-style Swarm Edition logo)
 if [ -f "$REPO_DIR/scripts/patch_opencode_ui.py" ]; then
-  do_step "Customizing OpenCode interface (Minecraft-style Swarm Edition & Web Cockpit footer)..."
+  do_step "Customizing OpenCode interface (Minecraft-style Swarm Edition logo)..."
   mkdir -p "$CONFIG_DIR/bin"
   if python3 "$REPO_DIR/scripts/patch_opencode_ui.py" "$CONFIG_DIR/bin/opencode-swarm"; then
     log "Swarm Edition customized binary installed to $CONFIG_DIR/bin/opencode-swarm"
@@ -362,7 +362,7 @@ msgbox "Summary" "$SUMMARY"
 
 echo ""
 echo -e "${C_CYAN}${C_BOLD}══════════════════════════════════════════════════════════${C_NC}"
-echo -e "${C_CYAN}${C_BOLD}  🛡️  OpenCode Swarm Configuration Ready${C_NC}"
+echo -e "${C_CYAN}${C_BOLD}  OpenCode Swarm Configuration Ready${C_NC}"
 echo -e "${C_CYAN}${C_BOLD}══════════════════════════════════════════════════════════${C_NC}"
 echo ""
 echo -e "  ${C_BOLD}Specialized Agents:${C_NC}"

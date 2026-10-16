@@ -13,3 +13,6 @@ __pycache__/
 *$py.class
 *.db
 *.sqlite3
+
+# Test suite directory
+tests/
