@@ -30,22 +30,6 @@ find_mcp_server() {
   return 1
 }
 
-find_web_server() {
-  local candidates=(
-    "$ECC_CONFIG/web/server.py"
-    "$ECC_CONFIG/swarm/web/server.py"
-    "$HOME/.config/opencode/swarm/web/server.py"
-    "$REPO_DIR/web/server.py"
-  )
-  for p in "${candidates[@]}"; do
-    if [ -f "$p" ]; then
-      echo "$p"
-      return 0
-    fi
-  done
-  return 1
-}
-
 # Source installed libraries
 if [ -f "$ECC_CONFIG/lib/ui.sh" ]; then
   source "$ECC_CONFIG/lib/ui.sh"
@@ -92,7 +76,6 @@ Commands:
   doctor      Run comprehensive diagnostic checks on the Swarm installation
   status      Show installation overview, agents roster, and MCP status
   live        Real-time multi-window swarm monitor (use --watch for auto-refresh)
-  web         Launch Swarm Cockpit & GetBrain Web Dashboard (use --open to view)
   team        Display real-time multi-agent team board and active tasks
   test        Real-time test suite runner, endpoint probing, and component check
   memory      Query persistent context memory (e.g. 'ecc memory auth' or 'ecc memory')
@@ -108,9 +91,7 @@ Examples:
   ecc live --watch
   ecc test
   ecc test --watch
-  ecc test --probe http://localhost:4040/health
-  ecc test --component web/server.py
-  ecc web --open
+  ecc test --probe http://localhost:8000/health
   ecc team
   ecc sentinel --rules
   ecc memory "database conventions"
@@ -391,22 +372,6 @@ print(server.tool_team_get_live_activity({}))
   fi
 }
 
-# ─── Swarm Web Cockpit & GetBrain Server ───
-
-cmd_web() {
-  local server_script
-  if ! server_script=$(find_web_server); then
-    issue "Swarm web server script not found"
-    exit 1
-  fi
-
-  local proj_dir
-  proj_dir="$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null || pwd)"
-  local proj_name
-  proj_name="$(basename "$proj_dir")"
-
-  python3 "$server_script" --dir "$proj_dir" --project "$proj_name" "$@"
-}
 
 # ─── Memory Inspector ───
 
@@ -515,7 +480,7 @@ while True:
 "
       ;;
     --probe|-p|probe)
-      local target_url="${2:-http://localhost:4040/health}"
+      local target_url="${2:-http://localhost:8000/health}"
       python3 -c "
 import sys
 sys.path.insert(0, '$(dirname "$server_script")')
@@ -793,9 +758,6 @@ main() {
       ;;
     live|watch|activity)
       cmd_live "${@:2}"
-      ;;
-    web|cockpit|dashboard|brain|ui)
-      cmd_web "${@:2}"
       ;;
     team|board|tasks)
       cmd_team

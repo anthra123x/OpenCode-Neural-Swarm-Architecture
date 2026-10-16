@@ -115,26 +115,20 @@ All code delivered by the swarm must pass the rigorous 6-Stage Sentinel Verifica
 OpenCode Swarm integrates directly into the terminal interface:
 
 - **ASCII Interface Header**: Clean typographic identity displayed on session initialization.
-- **Prompt Status & Telemetry URL**: Displays active workspace branch and monitoring URL (`http://localhost:4040`) beneath the interactive prompt.
+- **Prompt Status**: Displays active workspace branch and repository path directly beneath the interactive prompt.
 - **TokyoNight Palette**: High-contrast, dark terminal palette with stacked diff visualization (`diff_style: "stacked"`).
 - **Process Isolation**: Terminal tabs are dynamically tagged with ANSI OSC sequences indicating the active workspace.
 
 ---
 
-## 7. Telemetry & Architectural Knowledge Graph (GetBrain)
+## 7. Real-Time Terminal Monitoring & Swarm Telemetry
 
-The framework includes a lightweight, 100% passive telemetry dashboard running locally:
+The framework provides real-time multi-agent activity monitoring directly within the CLI:
 
-- **Per-Project Isolation**: Dynamic port allocation (4040-4060) guarantees dedicated telemetry sessions per repository.
-- **GetBrain Graph**: Synthesizes the project's physical modules, data models, contracts, and architecture into an interactive visual graph.
-- **Sentinel Scorecard**: Displays live status of QA audit rules, component verifications, and compliance metrics.
-- **Zero External Overhead**: Implemented in pure standard library Python with Server-Sent Events (SSE) for instant browser reactivity without daemon bloat.
-
-To launch or inspect the dashboard:
-```bash
-ecc web
-# or open http://localhost:4040 in your browser
-```
+- **Per-Project Isolation**: Compound primary keys guarantee dedicated agent states and tasks per workspace.
+- **Multi-Window Live Monitor**: `ecc live --watch` displays active windows, current tasks, and recent handoffs in real time.
+- **Sentinel Scorecard**: `ecc sentinel --rules` verifies QA audit compliance, security checks, and code standards.
+- **Zero Daemon Overhead**: Operates entirely through native SQLite databases and standard Unix pipes without background servers.
 
 ---
 
@@ -146,13 +140,14 @@ The `ecc` command-line utility provides administrative controls for the framewor
 Usage: ecc <command> [options]
 
 Core Commands:
+  status           Report active session, agent states, and MCP health
+  live             Real-time multi-window swarm monitor (use --watch)
+  team             Display multi-agent team board and active tasks
+  test             Real-time test suite runner and endpoint probing
+  memory           Query persistent context memory and learned instincts
+  sentinel         Inspect development rules and audit compliance
   validate         Verify syntax and configuration integrity
-  agents           List and inspect specialized cognitive neurons
-  skills           List installed engineering skills
-  status           Report active session and swarm status
-  web              Open or ensure the local telemetry dashboard
-  backup           Create timestamped archive of configuration
-  restore          Restore configuration from backup archive
+  configure        Re-run the configuration wizard
   help             Display command reference
 ```
 
@@ -200,8 +195,7 @@ opencode_config/
 ├── scripts/                 # Maintenance & patch utilities
 ├── skills/                  # Specialized engineering skills
 ├── templates/               # Session launcher wrappers
-├── tests/                   # End-to-end verification test suite
-└── web/                     # Passive telemetry dashboard & GetBrain
+└── tests/                   # End-to-end verification test suite
 ```
 
 ---
@@ -217,8 +211,11 @@ python3 tests/test_full_swarm_workflow.py
 # Run multi-window concurrency test
 python3 tests/test_multi_window_swarm.py
 
-# Run multi-project isolation test
-python3 tests/test_multi_project_web.py
+# Run self-maintenance and anti-sabotage test
+python3 tests/test_swarm_self_maintenance_and_anti_sabotage.py
+
+# Run swarm stress and continuous training test
+python3 tests/test_swarm_stress_and_training.py
 ```
 
 All test suites execute without external dependencies, validating workflow continuity, multi-terminal concurrency, and zero-compaction state integrity.

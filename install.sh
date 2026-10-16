@@ -296,13 +296,6 @@ do_step "Installing ecc CLI..."
 cp "$REPO_DIR/ecc" "$LOCAL_BIN/ecc"
 chmod +x "$LOCAL_BIN/ecc"
 
-# 10. Install Web Cockpit & GetBrain
-if [ -d "$REPO_DIR/web" ]; then
-  mkdir -p "$CONFIG_DIR/web/public"
-  cp -r "$REPO_DIR/web/"* "$CONFIG_DIR/web/"
-  chmod +x "$CONFIG_DIR/web/server.py" "$CONFIG_DIR/web/brain_builder.py"
-  log "Web Cockpit & GetBrain installed to $CONFIG_DIR/web/"
-fi
 log "ecc CLI installed to $LOCAL_BIN/ecc"
 
 # 10. Copy scripts & templates

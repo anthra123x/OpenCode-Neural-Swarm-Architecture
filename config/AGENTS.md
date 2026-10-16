@@ -91,7 +91,6 @@ La memoria persistente permite conservar contexto, reglas de negocio, preferenci
 - **Aprendizajes y Retroalimentación Continua (`record_project_learning`)**:
   - Causa raíz de un fallo sutil, un gotcha de testing o una incompatibilidad, y cómo resolverlo.
   - Al alimentar este bucle, todos los subagentes consultan automáticamente las lecciones vía `get_session_bootstrap()` y `get_project_learnings()`, previniendo errores recurrentes y refinando su desempeño con el proyecto.
-- **Panel Web Exclusivamente de Telemetría**: El dashboard web es estrictamente un monitor pasivo en tiempo real (estado de agentes, tablero Kanban, grafo GetBrain y salud de pruebas). No contiene ni requiere acciones manuales de guardado ni checkpoints de usuario.
 
 ---
 
@@ -158,8 +157,8 @@ El servidor MCP `swarm-tester` y su plugin interactivo operan en tiempo real par
    - Detección automática del test runner del proyecto (`pytest`, `vitest`, `jest`, `unittest`, `cargo test`, `go test`).
    - Parseo instantáneo de aserciones (`passed`, `failed`, `total`) y porcentaje de cobertura (`coverage_percent`).
    - Sincronización automática con `swarm-sentinel` (`auto_sync_sentinel=True`).
-2. **Sondeo en Vivo de Endpoints y Páginas Web (`tester_probe_endpoint`)**:
-   - Envía peticiones HTTP reales a servidores de desarrollo locales (ej: `http://localhost:4040/health`, APIs, SPAs).
+2. **Sondeo en Vivo de Endpoints (`tester_probe_endpoint`)**:
+   - Envía peticiones HTTP reales a servidores de desarrollo locales (ej: APIs REST, microservicios, SPAs).
    - Valida códigos de respuesta esperados (200, 201), tiempo de latencia en milisegundos y patrones de texto en el body.
 3. **Verificación Estática de Componentes UI y Código (`tester_verify_component`)**:
    - Comprueba sintaxis AST estricta (Python, TypeScript/JavaScript, CSS, HTML).
@@ -168,7 +167,7 @@ El servidor MCP `swarm-tester` y su plugin interactivo operan en tiempo real par
    - Localiza y ejecuta suites de pruebas unitarias co-localizadas (ej: `server.py` -> `test_server.py`).
 4. **Scorecard de Salud Global en Vivo (`tester_get_live_health`)**:
    - Muestra estado consolidado: `HEALTHY`, `DEGRADED`, o `FAILING`.
-   - Accesible desde la web UI en `http://localhost:4040/#tester` y en la cabecera del Cockpit.
+   - Consultable en la terminal mediante `ecc test --watch` o mediante la herramienta `tester_get_live_health()`.
 5. **Comprobación Ultrarrápida de Modificaciones Git (`tester_quick_check`)**:
    - Inspecciona archivos modificados en el árbol git y los verifica en milisegundos.
 6. **Puente Directo Tester ↔ Sentinel (`tester_sync_with_sentinel`)**:

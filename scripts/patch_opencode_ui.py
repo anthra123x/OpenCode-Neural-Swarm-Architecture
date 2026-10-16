@@ -4,10 +4,9 @@ patch_opencode_ui.py — OpenCode Swarm Edition TUI Patcher
 
 Applies surgical binary patches to OpenCode (Bun single-file executable)
 with exact byte-length preservation:
-1. LOGO: Adds "  ꜱᴡᴀʀᴍ" / "  ᴇᴅɪᴛɪᴏɴ" in matching block/small-caps styling
+1. LOGO: Adds "  SWARM" / "  EDITION" in matching block styling
    right beside "opencode", matching Minecraft's "Java Edition" subtitle aesthetic.
-2. PROMPT FOOTER: Injects the active project Web Cockpit session URL
-   (e.g. "⚡ http://localhost:4040") into the location row directly below the prompt input.
+2. CLI / PROMPT: Preserves clean vanilla path:branch status without web URLs.
 """
 
 import sys
@@ -82,37 +81,8 @@ def patch_binary(src_path, dst_path):
                     print(f"[✓] Patched OpenCode logo via legacy array ({orig_am_len} bytes)")
                     patched_something = True
 
-    # --- 2. Patch Prompt Footer Location / Session Web URL ---
-    orig_prompt = b',wn=c(()=>{if(!r.sessionID)return W.ref??R.location.default();if(ye()!=="idle")return;return R.session.get(r.sessionID)?.location}),jo=c(()=>{let Ie=Le(),Ze=Ie?{directory:Ie}:wn();if(!Ze)return;let ht=Zl(Ze.directory,T.home),ut=R.location.vcs.info(Ze)?.branch.current;return ut?`${ht}:${ut}`:ht}),[qo,rn]=P(xe().width),dn=c(()=>{let Ie=jo();if(!Ie)return;return g$(Ie,qo())}),Kr='
-    old_cand_prompt = b',wn=c(()=>r.sessionID?ye()=="idle"?R.session.get(r.sessionID)?.location:void 0:W.ref??R.location.default()),jo=c(()=>{let d=Le()||wn()?.directory;if(!d)return;let h=Zl(d,T.home),b=R.location.vcs.info({directory:d})?.branch.current;return(b?h+":"+b:h)+"  "+(process.env.OPENCODE_WEB_URL||"http://localhost:4040")}),[qo,rn]=P(xe().width),dn=c(()=>jo()?g$(jo(),qo()):void 0)    ,Kr='
-    cand_prompt = b',wn=c(()=>r.sessionID?ye()=="idle"?R.session.get(r.sessionID)?.location:void 0:W.ref??R.location.default()),jo=c(()=>{let d=Le()||wn()?.directory;if(!d)return;let h=Zl(d,T.home),b=R.location.vcs.info({directory:d})?.branch.current,u=process.env.OPENCODE_WEB_URL;return(b?h+":"+b:h)+(u?"  [web: "+u+"]":"")}),[qo,rn]=P(xe().width),dn=c(()=>jo()?g$(jo(),qo()):void 0)          ,Kr='
-
-    pos_prompt = data.find(orig_prompt)
-    pos_old = data.find(old_cand_prompt)
-    if pos_prompt != -1 and len(cand_prompt) == len(orig_prompt):
-        data[pos_prompt:pos_prompt + len(orig_prompt)] = cand_prompt
-        print(f"[✓] Patched prompt footer location with clean [web: URL] badge ({len(orig_prompt)} bytes)")
-        patched_something = True
-    elif pos_old != -1 and len(cand_prompt) == len(old_cand_prompt):
-        data[pos_old:pos_old + len(old_cand_prompt)] = cand_prompt
-        print(f"[✓] Upgraded prompt footer location to clean [web: URL] badge ({len(old_cand_prompt)} bytes)")
-        patched_something = True
-    else:
-        # Check legacy pattern
-        orig_legacy = b"""dn=c(()=>{if(!r.sessionID)return _.ref??C.location.default();if(ne()!=="idle")return;return C.session.get(r.sessionID)?.location}),zr=c(()=>{let Ie=Xe(),et=Ie?{directory:Ie}:dn();if(!et)return;let X=Al(et.directory,T.home),de=C.location.vcs.info(et)?.branch.current;return de?`${X}:${de}`:X}),[fn,gn]=w(se().width),_r=c(()=>{let Ie=zr();if(!Ie)return;return wL(Ie,fn())})"""
-        pos_legacy = data.find(orig_legacy)
-        if pos_legacy != -1:
-            orig_legacy_len = len(orig_legacy)
-            cand_legacy = b"""dn=c(()=>!r.sessionID?_.ref??C.location.default():ne()=="idle"?C.session.get(r.sessionID)?.location: void 0),zr=c(()=>{let I=Xe(),e=I?{directory:I}:dn();if(!e)return;let X=Al(e.directory,T.home),b=C.location.vcs.info(e)?.branch.current;return b?X+":"+b:X}),[fn,gn]=w(se().width),_r=c(()=>{let I=zr(),u=process.env.OPENCODE_WEB_URL;return I?wL(I,fn())+(u?`  ${u}`:""):void 0})"""
-            if len(cand_legacy) == orig_legacy_len:
-                data[pos_legacy:pos_legacy + orig_legacy_len] = cand_legacy
-                print(f"[✓] Patched legacy prompt footer location ({orig_legacy_len} bytes)")
-                patched_something = True
-        else:
-            print("[*] Prompt footer in-binary patch skipped (active Cockpit URL handled via session launcher wrapper)")
-
     if not patched_something:
-        print("[!] Warning: Could not locate patch targets in binary")
+        print("[!] Warning: Could not locate logo patch target in binary")
         return False
 
     # Ensure output directory exists and write atomically to avoid [Errno 26] Text file busy

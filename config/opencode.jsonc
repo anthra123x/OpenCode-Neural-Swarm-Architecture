@@ -42,7 +42,7 @@
       "mode": "primary",
       "color": "#8B5CF6",
       "steps": 60,
-      "description": "[Lead Architect] Orchestrator & System Designer. Telemetry: http://localhost:4040 | GetBrain: http://localhost:4040/#brain | Live Tester: http://localhost:4040/#tester"
+      "description": "[Lead Architect] Orchestrator & System Designer. Coordinates autonomous subagents and MCP workflows."
     },
     "backend": {
       "mode": "all",

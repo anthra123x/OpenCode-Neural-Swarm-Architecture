@@ -2,27 +2,22 @@
 """
 Comprehensive End-to-End Workflow & Stability Test for OpenCode Swarm.
 Tests:
-  1. Multi-request endurance & zero connection leaks on Web Server (REST + SSE).
-  2. Agent project isolation (compound primary key prevents clobbering).
-  3. Reactive Cross-Agent Triggering (Backend ➔ Frontend ➔ QA-Auditor).
-  4. Automatic Zero-Compaction Checkpoint generation.
-  5. Automatic agent transition to idle on task completion.
-  6. GetBrain real-time knowledge graph synchronization.
+  1. Multi-Project Agent Isolation (compound primary key prevents clobbering).
+  2. Reactive Cross-Agent Triggering (Backend -> Frontend -> QA-Auditor).
+  3. Automatic Zero-Compaction Checkpoint generation.
+  4. Automatic agent transition to idle on task completion.
+  5. Autonomous Continuous Learning & Feedback Loop (Memory, Tester, Sentinel).
 """
 
 import sys
 import os
 import json
 import time
-import urllib.request
-import subprocess
 from pathlib import Path
 import importlib.util
 
 # Paths
 WORKSPACE_DIR = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(WORKSPACE_DIR / "web"))
-import brain_builder
 
 # Load team collab server
 team_spec = importlib.util.spec_from_file_location("team_collab_server", str(WORKSPACE_DIR / "mcp" / "team-collab" / "server.py"))
@@ -45,7 +40,7 @@ tester_server = importlib.util.module_from_spec(tester_spec)
 tester_spec.loader.exec_module(tester_server)
 
 def log(msg):
-    print(f"  ✓ {msg}")
+    print(f"  [PASS] {msg}")
 
 def header(title):
     print("\n" + "=" * 70)
@@ -53,41 +48,8 @@ def header(title):
     print("=" * 70)
 
 def run_all_tests():
-    header("STAGE 1: Server Launch & Endurance (Zero Connection Leaks)")
-    # Ensure server is running for this workspace
-    proc = subprocess.run([
-        sys.executable,
-        str(WORKSPACE_DIR / "web" / "server.py"),
-        "--ensure",
-        "--dir", str(WORKSPACE_DIR),
-        "--project", WORKSPACE_DIR.name
-    ], capture_output=True, text=True, check=True)
-    port = int(proc.stdout.strip())
-    base_url = f"http://localhost:{port}"
-    print(f"Dedicated web server verified on {base_url}")
-
-    # Blast 40 rapid GET requests across endpoints to verify no socket/FD leak
-    endpoints = ["/api/status", "/api/tasks", "/api/artifacts", "/api/memories", "/api/feed", "/api/brain"]
-    for i in range(40):
-        ep = endpoints[i % len(endpoints)]
-        req = urllib.request.Request(f"{base_url}{ep}")
-        with urllib.request.urlopen(req, timeout=3.0) as resp:
-            self_stat = resp.status
-            self_body = resp.read()
-            assert self_stat == 200, f"Failed on {ep}: {self_stat}"
-            assert len(self_body) > 0
-    log("40 rapid sequential requests succeeded with clean connection closures.")
-
-    # Test SSE stream read and clean client disconnect
-    sse_req = urllib.request.Request(f"{base_url}/api/stream")
-    with urllib.request.urlopen(sse_req, timeout=4.0) as sse_resp:
-        line1 = sse_resp.readline().decode("utf-8")
-        line2 = sse_resp.readline().decode("utf-8")
-        assert "data:" in line1 or "data:" in line2
-    log("SSE /api/stream received live payload and closed cleanly without hanging server.")
-
     # ─────────────────────────────────────────────────────────────────
-    header("STAGE 2: Multi-Project Agent Isolation (Compound Primary Key)")
+    header("STAGE 1: Multi-Project Agent Isolation (Compound Primary Key)")
     proj_a = "proj-alpha-test"
     proj_b = "proj-beta-test"
 
@@ -115,7 +77,7 @@ def run_all_tests():
     log(f"Project '{proj_a}' and '{proj_b}' maintain independent @backend states without collision.")
 
     # ─────────────────────────────────────────────────────────────────
-    header("STAGE 3: Reactive Triggering (Backend ➔ Frontend ➔ QA)")
+    header("STAGE 2: Reactive Triggering (Backend -> Frontend -> QA)")
     wf_proj = "e2e-workflow-demo"
 
     # Turn A: Backend shares API contract
@@ -133,7 +95,7 @@ def run_all_tests():
     # Verify Frontend status was automatically transitioned to working on this trigger
     st_frontend = team_server.tool_team_get_status({"project": wf_proj})
     assert "@frontend" in st_frontend and "WORKING" in st_frontend
-    log("Web Cockpit / status immediately reflects @frontend is WORKING on the backend contract.")
+    log("Team status immediately reflects @frontend is WORKING on the backend contract.")
 
     # Verify Auto-Checkpoint was created
     latest_chk = mem_server.tool_get_session_checkpoint({"project": wf_proj})
@@ -173,7 +135,7 @@ def run_all_tests():
     log("Frontend published UI contract and dispatched reactive trigger to @qa-auditor.")
 
     # ─────────────────────────────────────────────────────────────────
-    header("STAGE 4: Task Completion & Automatic Agent Idle Transition")
+    header("STAGE 3: Task Completion & Automatic Agent Idle Transition")
     # QA Auditor posts task, claims it, and completes it
     team_server.tool_team_post_task({
         "title": "Verify WCAG AA & Vitest Unit Tests",
@@ -204,18 +166,7 @@ def run_all_tests():
     log("QA Auditor automatically transitioned to IDLE upon completing task.")
 
     # ─────────────────────────────────────────────────────────────────
-    header("STAGE 5: GetBrain Architecture & Graph Synthesis")
-    brain_data = brain_builder.build_project_brain(wf_proj, str(WORKSPACE_DIR))
-    assert "nodes" in brain_data and "links" in brain_data
-    node_types = set(n["type"] for n in brain_data["nodes"])
-    assert "hub" in node_types, "Missing hub node in GetBrain"
-    assert "module" in node_types, "Missing code module nodes in GetBrain"
-    assert "artifact" in node_types, "Missing artifact nodes in GetBrain"
-    print(f"GetBrain graph synthesized {len(brain_data['nodes'])} nodes and {len(brain_data['links'])} semantic links.")
-    log("GetBrain accurately models project modules, contracts, agents, and checkpoints.")
-
-    # ─────────────────────────────────────────────────────────────────
-    header("STAGE 6: Autonomous Continuous Learning & Feedback Loop")
+    header("STAGE 4: Autonomous Continuous Learning & Feedback Loop")
     # 1. Record explicit engineering lesson from an agent
     rec_res = mem_server.tool_record_project_learning({
         "project": wf_proj,
@@ -261,18 +212,16 @@ def run_all_tests():
     log("Session Bootstrap automatically hydrated subagents with project feedback and learnings.")
 
     # ─────────────────────────────────────────────────────────────────
-    header("FINAL RESULT: 100% OF END-TO-END WORKFLOW ASSERTIONS PASSED!")
+    header("FINAL RESULT: ALL SWARM CLI WORKFLOW ASSERTIONS PASSED")
     print("""
-  ╔══════════════════════════════════════════════════════════════════╗
-  ║  ⚡ ALL SWARM WORKFLOW STAGES VERIFIED WITH ZERO ERRORS         ║
-  ║  • Server Stability & SSE Resilience: PASSED                    ║
-  ║  • Multi-Project Isolated Agent States: PASSED                   ║
-  ║  • Reactive Work Triggers (Backend ➔ Frontend ➔ QA): PASSED     ║
-  ║  • Automatic Zero-Compaction Checkpoints: PASSED                ║
-  ║  • Automatic Idle Transition on Task Complete: PASSED            ║
-  ║  • GetBrain Architectural Knowledge Graph: PASSED               ║
-  ║  • Autonomous Continuous Learning & Feedback Loop: PASSED       ║
-  ╚══════════════════════════════════════════════════════════════════╝
+  +------------------------------------------------------------------+
+  |  ALL SWARM WORKFLOW STAGES VERIFIED WITH ZERO ERRORS             |
+  |  - Multi-Project Isolated Agent States: PASSED                   |
+  |  - Reactive Work Triggers (Backend -> Frontend -> QA): PASSED    |
+  |  - Automatic Zero-Compaction Checkpoints: PASSED                 |
+  |  - Automatic Idle Transition on Task Complete: PASSED            |
+  |  - Autonomous Continuous Learning & Feedback Loop: PASSED        |
+  +------------------------------------------------------------------+
     """)
 
 if __name__ == "__main__":

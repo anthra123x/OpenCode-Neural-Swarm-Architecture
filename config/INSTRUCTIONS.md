@@ -17,9 +17,7 @@ Para que el usuario perciba de inmediato que la configuración de OpenCode Swarm
 │  Líder: @orchestrator           |  Rama: <rama>                  │
 │  Especialistas: @backend · @frontend · @git-flow · @qa · @devops │
 ╰──────────────────────────────────────────────────────────────────╯
-**Tip de Flujo de Trabajo**: El servidor local para monitorear el flujo de trabajo de los agentes y el grafo está activo:
-- **Dashboard Swarm**: http://localhost:4040
-- **GetBrain Graph**: http://localhost:4040/#brain
+**Tip de Flujo de Trabajo**: Monitorea el flujo de trabajo multi-agente en tiempo real con `/live` o desde otra terminal con `ecc live --watch`.
 ```
 
 3. Revisa si existen tareas o recuerdos de sesiones anteriores en este proyecto:
@@ -110,7 +108,7 @@ Para evitar que OpenCode se cuelgue o lance errores como `database is locked` cu
 Para que los agentes trabajen de forma reactiva y encadenada sin esperar a que el usuario redacte órdenes manuales:
 1. **Disparo Automático al Publicar Contratos**:
    - Cuando `@backend` comparte un artefacto de tipo `api_spec`, `schema` o `database` mediante `team_share_artifact`, el sistema registra de inmediato un disparador en `team_triggers`.
-   - `@frontend` se marca automáticamente en estado `WORKING` en el Cockpit Web con la tarea: `Triggered by @backend: Consume contract <key>`.
+   - `@frontend` se marca automáticamente en estado `WORKING` en el registro de equipo con la tarea: `Triggered by @backend: Consume contract <key>`.
 2. **Consumo Inmediato por el Frontend**:
    - Al iniciar su turno o conmutar con `TAB`, `@frontend` llama a:
      ```python
@@ -194,7 +192,7 @@ Para garantizar estabilidad absoluta, cero caídas en la delegación y cumplimie
 4. **Verificación en Tiempo Real y Blindaje Anti-Regresiones (`swarm-tester`)**:
    - Cada componente nuevo o modificado (UI, backend o scripts) se valida de inmediato mediante `tester_verify_component(file_path=...)` o ejecutando la suite con `tester_run_suite(runner="auto")`.
    - Si se levantan servicios HTTP, microservicios o interfaces web, se sondea la conectividad mediante `tester_probe_endpoint(url=...)`.
-   - La telemetría en tiempo real se visualiza en el panel web (http://localhost:4040/#tester) o en terminal mediante `ecc test --watch`.
+   - La telemetría y el estado en tiempo real se visualizan directamente en la terminal mediante `ecc test --watch` o ejecutando `/live`.
 
 ---
 

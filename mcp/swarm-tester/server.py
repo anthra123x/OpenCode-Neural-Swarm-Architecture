@@ -451,7 +451,7 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "url": {"type": "string", "description": "Target HTTP URL (e.g. 'http://localhost:3000/api/health', 'http://localhost:4040/api/status')"},
+                "url": {"type": "string", "description": "Target HTTP URL (e.g. 'http://localhost:3000/api/health', 'http://localhost:8000/api/status')"},
                 "method": {"type": "string", "enum": ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"], "description": "HTTP method (default: GET)"},
                 "expected_status": {"type": "integer", "description": "Expected HTTP response status code (default: 200)"},
                 "payload": {"type": "string", "description": "Optional JSON or string payload to send for POST/PUT requests"},
