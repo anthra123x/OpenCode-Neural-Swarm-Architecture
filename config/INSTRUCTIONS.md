@@ -13,13 +13,13 @@ Para que el usuario perciba de inmediato que la configuración de OpenCode Swarm
 
 ```markdown
 ╭──────────────────────────────────────────────────────────────────╮
-│  ⚡ ᴏᴘᴇɴᴄᴏᴅᴇ ⟪ ꜱᴡᴀʀᴍ ᴇᴅɪᴛɪᴏɴ ⟫  |  Proyecto: <nombre-proyecto>   │
+│  ᴏᴘᴇɴᴄᴏᴅᴇ ⟪ ꜱᴡᴀʀᴍ ᴇᴅɪᴛɪᴏɴ ⟫  |  Proyecto: <nombre-proyecto>   │
 │  Líder: @orchestrator           |  Rama: <rama>                  │
 │  Especialistas: @backend · @frontend · @git-flow · @qa · @devops │
 ╰──────────────────────────────────────────────────────────────────╯
-💡 **Tip de Flujo de Trabajo**: El servidor local para monitorear el flujo de trabajo de los agentes y el grafo está activo:
-- 📊 **Dashboard Swarm**: http://localhost:4040
-- 🧠 **GetBrain Graph**: http://localhost:4040/#brain
+**Tip de Flujo de Trabajo**: El servidor local para monitorear el flujo de trabajo de los agentes y el grafo está activo:
+- **Dashboard Swarm**: http://localhost:4040
+- **GetBrain Graph**: http://localhost:4040/#brain
 ```
 
 3. Revisa si existen tareas o recuerdos de sesiones anteriores en este proyecto:
@@ -106,11 +106,11 @@ Para evitar que OpenCode se cuelgue o lance errores como `database is locked` cu
 - **Dentro de OpenCode**: Ejecutar el comando `/live` en cualquier sesión.
 - **En terminal independiente o tmux split**: Ejecutar `ecc live --watch` para ver la actividad de todas las ventanas actualizándose en tiempo real cada 2 segundos.
 
-### D. Sistema de Disparadores Reactivos Cross-Agent (Backend ➔ Frontend)
+### D. Sistema de Disparadores Reactivos Cross-Agent (Backend -> Frontend)
 Para que los agentes trabajen de forma reactiva y encadenada sin esperar a que el usuario redacte órdenes manuales:
 1. **Disparo Automático al Publicar Contratos**:
    - Cuando `@backend` comparte un artefacto de tipo `api_spec`, `schema` o `database` mediante `team_share_artifact`, el sistema registra de inmediato un disparador en `team_triggers`.
-   - `@frontend` se marca automáticamente en estado `WORKING` en el Cockpit Web con la tarea: `⚡ Triggered by @backend: Consume contract <key>`.
+   - `@frontend` se marca automáticamente en estado `WORKING` en el Cockpit Web con la tarea: `Triggered by @backend: Consume contract <key>`.
 2. **Consumo Inmediato por el Frontend**:
    - Al iniciar su turno o conmutar con `TAB`, `@frontend` llama a:
      ```python

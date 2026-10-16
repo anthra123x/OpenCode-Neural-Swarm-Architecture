@@ -21,7 +21,7 @@ Todos los agentes especializados (`@orchestrator`, `@backend`, `@frontend`, `@gi
      ```
      o emite pulsos de vida con `team_heartbeat(agent_name="backend", window_id="win-backend")`.
 
-3. **Handoffs, Contratos y Disparadores Reactivos (Backend ➔ Frontend)**:
+3. **Handoffs, Contratos y Disparadores Reactivos (Backend -> Frontend)**:
    - Cuando `@backend` termine un modelo de datos o endpoints, publica el contrato:
      ```python
      team_share_artifact(creator="backend", artifact_key="auth-api-v1", title="Auth Endpoints Contract", artifact_type="api_spec", content="...")

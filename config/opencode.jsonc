@@ -10,36 +10,69 @@
       "~/.opencode/skills"
     ]
   },
+  "mcp": {
+    "context-memory": {
+      "type": "local",
+      "command": ["opencode-context-memory"],
+      "enabled": true
+    },
+    "team-collab": {
+      "type": "local",
+      "command": ["opencode-team-collab"],
+      "enabled": true
+    },
+    "swarm-sentinel": {
+      "type": "local",
+      "command": ["opencode-swarm-sentinel"],
+      "enabled": true
+    },
+    "swarm-tester": {
+      "type": "local",
+      "command": ["opencode-swarm-tester"],
+      "enabled": true
+    },
+    "codebase-memory-mcp": {
+      "type": "local",
+      "command": ["codebase-memory-mcp"],
+      "enabled": false
+    }
+  },
   "agent": {
     "orchestrator": {
       "mode": "primary",
       "color": "#8B5CF6",
-      "description": "⚡ [Swarm Lead] Orchestrator & Architect. Monitoreo: http://localhost:4040 | GetBrain: http://localhost:4040/#brain | Live Tester: http://localhost:4040/#tester"
+      "steps": 60,
+      "description": "[Lead Architect] Orchestrator & System Designer. Telemetry: http://localhost:4040 | GetBrain: http://localhost:4040/#brain | Live Tester: http://localhost:4040/#tester"
     },
     "backend": {
       "mode": "all",
       "color": "#3B82F6",
-      "description": "🛡️ [Swarm Backend] APIs, DB Models (Postgres/Prisma/MySQL) & TDD Unit Testing (>=80%)."
+      "steps": 50,
+      "description": "[Backend Specialist] APIs, Database Models (Postgres/Prisma/MySQL) & TDD Unit Testing (>=80%)."
     },
     "frontend": {
       "mode": "all",
       "color": "#EC4899",
-      "description": "🎨 [Swarm Frontend] Modern UI/UX, Spring Animations, Tokens & Anti-Slop Design."
+      "steps": 50,
+      "description": "[Frontend Specialist] Modern UI/UX, Component Ergonomics, Tokens & Anti-Slop Design."
     },
     "git-flow": {
       "mode": "all",
       "color": "#10B981",
-      "description": "🌿 [Swarm GitFlow] Branch Lifecycles, Conventional Commits 1.0 & Clean Releases."
+      "steps": 40,
+      "description": "[GitFlow Manager] Branch Lifecycles, Conventional Commits 1.0 & Clean Releases."
     },
     "qa-auditor": {
       "mode": "all",
       "color": "#F59E0B",
-      "description": "🧪 [Swarm QA Auditor] 6-Stage Verification Loop, Live Tester & Sentinel Rule Audits."
+      "steps": 50,
+      "description": "[QA & Sentinel Auditor] 6-Stage Verification Loop, Live Tester & Defensive Rule Audits."
     },
     "devops": {
       "mode": "all",
       "color": "#06B6D4",
-      "description": "🐳 [Swarm DevOps] Multi-Stage Dockerfiles, Rootless Containers & CI/CD Pipelines."
+      "steps": 40,
+      "description": "[DevOps Specialist] Multi-Stage Dockerfiles, Rootless Containers & CI/CD Pipelines."
     }
   },
   "permission": {

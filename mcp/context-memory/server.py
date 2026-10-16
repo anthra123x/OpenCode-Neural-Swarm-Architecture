@@ -1045,18 +1045,28 @@ def main():
                     resp = {
                         "jsonrpc": "2.0",
                         "id": msg_id,
-                        "error": {
-                            "code": -32603,
-                            "message": f"Execution error in {tool_name}: {str(e)}"
+                        "result": {
+                            "isError": True,
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": f"Error executing {tool_name}: {str(e)}"
+                                }
+                            ]
                         }
                     }
             else:
                 resp = {
                     "jsonrpc": "2.0",
                     "id": msg_id,
-                    "error": {
-                        "code": -32601,
-                        "message": f"Tool not found: {tool_name}"
+                    "result": {
+                        "isError": True,
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Tool not found: {tool_name}"
+                            }
+                        ]
                     }
                 }
 

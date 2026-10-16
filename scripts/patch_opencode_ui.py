@@ -50,54 +50,73 @@ def patch_binary(src_path, dst_path):
     with open(src_path, "rb") as f:
         data = bytearray(f.read())
 
-    # --- 1. Patch Logo (am={left:..., right:...}) ---
-    pos_am = data.find(b"am={left:")
-    end_am = data.find(b"u0={left:")
-    if pos_am == -1 or end_am == -1 or pos_am >= end_am:
-        print("[!] Warning: Could not locate logo array 'am={left:' in binary")
-        return False
+    patched_something = False
 
-    orig_am = bytes(data[pos_am:end_am])
-    orig_am_len = len(orig_am)
-
-    # Pure ASCII logo patch: keeps all opencode letters and 19-char left spacing 100% untouched
-    cand_am = b"""am={left:["                   ","\\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2584","\\u2588__\\u2588 \\u2588__\\u2588 \\u2588^^^ \\u2588__\\u2588","\\u2580\\u2580\\u2580\\u2580 \\u2588\\u2580\\u2580\\u2580 \\u2580\\u2580\\u2580\\u2580 \\u2580~~\\u2580"],right:["             \\u2584     ","\\u2588\\u2580\\u2580\\u2580 \\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2588","\\u2588___ \\u2588__\\u2588 \\u2588__\\u2588 \\u2588^^^  SWARM","\\u2580\\u2580\\u2580\\u2580 ".repeat(3)+"\\u2580\\u2580\\u2580\\u2580  EDITION"]},"""
-    diff_am = orig_am_len - len(cand_am)
-    if diff_am < 0:
-        print(f"[!] Warning: Logo candidate too long: {len(cand_am)} vs {orig_am_len}")
-        return False
-    final_am = cand_am.replace(b"]},", b" " * diff_am + b"]},")
-
-    if len(final_am) != orig_am_len:
-        print(f"[!] Warning: Logo patch length mismatch: expected {orig_am_len}, got {len(final_am)}")
-        return False
-
-    data[pos_am:end_am] = final_am
-    print(f"[✓] Patched OpenCode logo with Minecraft-style 'SWARM EDITION' subtitle ({orig_am_len} bytes, pure ASCII)")
+    # --- 1. Patch Logo: Search for ASCII block art invariant ---
+    # Invariant right line containing "opencode" right wing:
+    anchor_logo = b'"\\u2588___ \\u2588__\\u2588 \\u2588__\\u2588 \\u2588^^^","\\u2580\\u2580\\u2580\\u2580 \\u2580\\u2580\\u2580\\u2580 \\u2580\\u2580\\u2580\\u2580 \\u2580\\u2580\\u2580\\u2580"'
+    pos_logo = data.find(anchor_logo)
+    if pos_logo != -1:
+        orig_logo = bytes(data[pos_logo:pos_logo + len(anchor_logo)])
+        cand_logo = b'"\\u2588___ \\u2588__\\u2588 \\u2588__\\u2588 \\u2588^^^  SWARM",("\\u2580\\u2580\\u2580\\u2580 ".repeat(3)+"\\u2580\\u2580\\u2580\\u2580  EDITION"'
+        diff_logo = len(orig_logo) - len(cand_logo) - 1
+        if diff_logo >= 0:
+            cand_logo_padded = cand_logo + b' ' * diff_logo + b')'
+            if len(cand_logo_padded) == len(orig_logo):
+                data[pos_logo:pos_logo + len(anchor_logo)] = cand_logo_padded
+                print(f"[✓] Patched OpenCode logo with Minecraft-style 'SWARM EDITION' subtitle ({len(orig_logo)} bytes, pure ASCII)")
+                patched_something = True
+    else:
+        # Fallback to legacy variable search if present
+        pos_am = data.find(b"am={left:")
+        end_am = data.find(b"u0={left:")
+        if pos_am != -1 and end_am != -1 and pos_am < end_am:
+            orig_am = bytes(data[pos_am:end_am])
+            orig_am_len = len(orig_am)
+            cand_am = b"""am={left:["                   ","\\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2584","\\u2588__\\u2588 \\u2588__\\u2588 \\u2588^^^ \\u2588__\\u2588","\\u2580\\u2580\\u2580\\u2580 \\u2588\\u2580\\u2580\\u2580 \\u2580\\u2580\\u2580\\u2580 \\u2580~~\\u2580"],right:["             \\u2584     ","\\u2588\\u2580\\u2580\\u2580 \\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2588 \\u2588\\u2580\\u2580\\u2588","\\u2588___ \\u2588__\\u2588 \\u2588__\\u2588 \\u2588^^^  SWARM","\\u2580\\u2580\\u2580\\u2580 ".repeat(3)+"\\u2580\\u2580\\u2580\\u2580  EDITION"]},"""
+            diff_am = orig_am_len - len(cand_am)
+            if diff_am >= 0:
+                final_am = cand_am.replace(b"]},", b" " * diff_am + b"]},")
+                if len(final_am) == orig_am_len:
+                    data[pos_am:end_am] = final_am
+                    print(f"[✓] Patched OpenCode logo via legacy array ({orig_am_len} bytes)")
+                    patched_something = True
 
     # --- 2. Patch Prompt Footer Location / Session Web URL ---
-    orig_prompt = b"""dn=c(()=>{if(!r.sessionID)return _.ref??C.location.default();if(ne()!=="idle")return;return C.session.get(r.sessionID)?.location}),zr=c(()=>{let Ie=Xe(),et=Ie?{directory:Ie}:dn();if(!et)return;let X=Al(et.directory,T.home),de=C.location.vcs.info(et)?.branch.current;return de?`${X}:${de}`:X}),[fn,gn]=w(se().width),_r=c(()=>{let Ie=zr();if(!Ie)return;return wL(Ie,fn())})"""
+    orig_prompt = b',wn=c(()=>{if(!r.sessionID)return W.ref??R.location.default();if(ye()!=="idle")return;return R.session.get(r.sessionID)?.location}),jo=c(()=>{let Ie=Le(),Ze=Ie?{directory:Ie}:wn();if(!Ze)return;let ht=Zl(Ze.directory,T.home),ut=R.location.vcs.info(Ze)?.branch.current;return ut?`${ht}:${ut}`:ht}),[qo,rn]=P(xe().width),dn=c(()=>{let Ie=jo();if(!Ie)return;return g$(Ie,qo())}),Kr='
     pos_prompt = data.find(orig_prompt)
-    if pos_prompt == -1:
-        print("[!] Warning: Could not locate prompt footer location expression in binary")
+    if pos_prompt != -1:
+        orig_prompt_len = len(orig_prompt)
+        cand_prompt = b',wn=c(()=>r.sessionID?ye()=="idle"?R.session.get(r.sessionID)?.location:void 0:W.ref??R.location.default()),jo=c(()=>{let d=Le()||wn()?.directory;if(!d)return;let h=Zl(d,T.home),b=R.location.vcs.info({directory:d})?.branch.current;return(b?h+":"+b:h)+"  "+(process.env.OPENCODE_WEB_URL||"http://localhost:4040")}),[qo,rn]=P(xe().width),dn=c(()=>jo()?g$(jo(),qo()):void 0)    ,Kr='
+        if len(cand_prompt) == orig_prompt_len:
+            data[pos_prompt:pos_prompt + orig_prompt_len] = cand_prompt
+            print(f"[✓] Patched prompt footer location with active Web Cockpit URL ({orig_prompt_len} bytes)")
+            patched_something = True
+    else:
+        # Check legacy pattern
+        orig_legacy = b"""dn=c(()=>{if(!r.sessionID)return _.ref??C.location.default();if(ne()!=="idle")return;return C.session.get(r.sessionID)?.location}),zr=c(()=>{let Ie=Xe(),et=Ie?{directory:Ie}:dn();if(!et)return;let X=Al(et.directory,T.home),de=C.location.vcs.info(et)?.branch.current;return de?`${X}:${de}`:X}),[fn,gn]=w(se().width),_r=c(()=>{let Ie=zr();if(!Ie)return;return wL(Ie,fn())})"""
+        pos_legacy = data.find(orig_legacy)
+        if pos_legacy != -1:
+            orig_legacy_len = len(orig_legacy)
+            cand_legacy = b"""dn=c(()=>!r.sessionID?_.ref??C.location.default():ne()=="idle"?C.session.get(r.sessionID)?.location: void 0),zr=c(()=>{let I=Xe(),e=I?{directory:I}:dn();if(!e)return;let X=Al(e.directory,T.home),b=C.location.vcs.info(e)?.branch.current;return b?X+":"+b:X}),[fn,gn]=w(se().width),_r=c(()=>{let I=zr(),u=process.env.OPENCODE_WEB_URL;return I?wL(I,fn())+(u?`  ${u}`:""):void 0})"""
+            if len(cand_legacy) == orig_legacy_len:
+                data[pos_legacy:pos_legacy + orig_legacy_len] = cand_legacy
+                print(f"[✓] Patched legacy prompt footer location ({orig_legacy_len} bytes)")
+                patched_something = True
+        else:
+            print("[*] Prompt footer in-binary patch skipped (active Cockpit URL handled via session launcher wrapper)")
+
+    if not patched_something:
+        print("[!] Warning: Could not locate patch targets in binary")
         return False
 
-    orig_prompt_len = len(orig_prompt)
-    # Pure ASCII prompt patch: appends web URL outside of wL path-shortening to prevent URL truncation
-    cand_prompt = b"""dn=c(()=>!r.sessionID?_.ref??C.location.default():ne()=="idle"?C.session.get(r.sessionID)?.location: void 0),zr=c(()=>{let I=Xe(),e=I?{directory:I}:dn();if(!e)return;let X=Al(e.directory,T.home),b=C.location.vcs.info(e)?.branch.current;return b?X+":"+b:X}),[fn,gn]=w(se().width),_r=c(()=>{let I=zr(),u=Bun.env.OPENCODE_WEB_URL;return I?wL(I,fn())+(u?`  ${u}`:""):void 0})"""
-
-    if len(cand_prompt) != orig_prompt_len:
-        print(f"[!] Warning: Prompt footer patch length mismatch: expected {orig_prompt_len}, got {len(cand_prompt)}")
-        return False
-
-    data[pos_prompt:pos_prompt + orig_prompt_len] = cand_prompt
-    print(f"[✓] Patched prompt footer location with active Web Cockpit URL ({orig_prompt_len} bytes, pure ASCII)")
-
-    # Ensure output directory exists
+    # Ensure output directory exists and write atomically to avoid [Errno 26] Text file busy
     os.makedirs(os.path.dirname(os.path.abspath(dst_path)), exist_ok=True)
-    with open(dst_path, "wb") as f:
+    tmp_path = dst_path + f".tmp.{os.getpid()}"
+    with open(tmp_path, "wb") as f:
         f.write(data)
-    os.chmod(dst_path, 0o755)
+    os.chmod(tmp_path, 0o755)
+    os.replace(tmp_path, dst_path)
     print(f"[✓] Saved Swarm Edition binary to: {dst_path}")
     return True
 
