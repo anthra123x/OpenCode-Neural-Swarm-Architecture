@@ -344,10 +344,13 @@ def tool_sentinel_audit_task(args):
     if agent_name == "backend":
         # TDD & Test validation
         has_tests = any(k in (files_or_diff + test_summary).lower() for k in ["test", "spec", "assert", "coverage"])
-        if not has_tests:
+        cov_match = re.search(r"coverage\s*[=:]\s*(\d+)%", test_summary.lower())
+        insufficient_cov = cov_match and int(cov_match.group(1)) < 80
+        if not has_tests or insufficient_cov:
             score -= 25
-            violations.append({"code": "TDD-001", "severity": "high", "detail": "Backend task delivered without automated test suite or coverage report."})
-            feedback.append("Backend deliverables must include automated test cases in tests/ or describe test coverage (>=80%).")
+            detail = f"Backend task test coverage ({cov_match.group(1)}%) is below mandatory 80% threshold." if insufficient_cov else "Backend task delivered without automated test suite or coverage report."
+            violations.append({"code": "TDD-001", "severity": "high", "detail": detail})
+            feedback.append("Backend deliverables must include automated test cases in tests/ with verified test coverage >= 80%.")
 
         # Contract publication check
         if not artifact_key and "api" in task_title.lower():

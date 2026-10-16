@@ -137,8 +137,15 @@ El servidor MCP `swarm-sentinel` actúa como supervisor estricto y auditor de ca
    ```
 2. **Rechazo y Alerta Automática**:
    Si una regla es violada (ej: cobertura < 80% o mensaje de commit inválido), Sentinel **rechaza** el entregable, registra la infracción y emite automáticamente un aviso en `team-collab` para que el agente rectifique.
-3. **Mantenimiento del Bucle de Iteración**:
-   El orquestador no se detiene si un subagente sigue trabajando: usa `team_wait_for_task(task_id, timeout_seconds=30)` para esperar activamente el estado `ready_for_review` o `completed`.
+3. **Mantenimiento del Bucle de Iteración y Continuidad**:
+   El orquestador no se detiene si un subagente sigue trabajando: usa `team_wait_for_task(task_id, timeout_seconds=3)` para sondear el estado sin bloquear el hilo, asegurando ejecución continua sin pedir cambios manuales de TAB.
+
+---
+
+## 6. Blindaje Operacional Anti-Autosabotaje y Aprendizaje Continuo
+- **Inspección Previa Obligatoria**: Jamás crear archivos duplicados ni componentes paralelos.
+- **Validación Gateada**: Ningún agente cierra un entregable sin pruebas verdes (Build, Types, Lint, TDD >=80%, OWASP).
+- **Retroalimentación Persistente**: Cada lección u optimización descubierta se ancla con `record_project_learning` para nutrir las siguientes sesiones.
 
 ---
 

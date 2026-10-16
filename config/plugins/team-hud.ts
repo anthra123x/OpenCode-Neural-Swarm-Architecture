@@ -22,7 +22,7 @@ export default {
 
     // Set terminal title
     if (process.stdout && process.stdout.isTTY) {
-      process.stdout.write(`\x1b]0;⚡ ᴏᴘᴇɴᴄᴏᴅᴇ [ꜱᴡᴀʀᴍ] — ${projectName}\x07`)
+      process.stdout.write(`\x1b]0;OPENCODE [SWARM] — ${projectName}\x07`)
     }
 
     if (existsSync(webServer)) {
@@ -52,7 +52,7 @@ export default {
         const orchestrator = editor.get("orchestrator")
         if (orchestrator) {
           editor.update("orchestrator", (agent: any) => {
-            agent.description = `⚡ [Swarm Lead] Orchestrator. Cockpit: ${webUrl} | GetBrain: ${webUrl}/#brain | Live Tester: ${webUrl}/#tester`
+            agent.description = `[Swarm Lead] Orchestrator. Cockpit: ${webUrl} | GetBrain: ${webUrl}/#brain | Live Tester: ${webUrl}/#tester`
           })
         }
       })

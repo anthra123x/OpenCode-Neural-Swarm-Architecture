@@ -174,33 +174,71 @@ Para evitar la pérdida de información crítica por compactación destructiva d
 
 ---
 
-## 6. Guardián Swarm Sentinel & Bucle de Iteración Continuo
+## 6. Guardián Swarm Sentinel & Verificación en Tiempo Real
 
 Para garantizar estabilidad absoluta, cero caídas en la delegación y cumplimiento riguroso de ingeniería:
 
-1. **Bucle de Iteración No Prematuro**:
+1. **Bucle de Iteración Continuo**:
    - Cuando `@orchestrator` delega a un especialista (ej: `@frontend` o `@backend`), ejecuta la herramienta nativa `subagent` en primer plano.
-   - Si una tarea se ejecuta en segundo plano o requiere esperar el resultado de un subagente, el orquestador **nunca concluye el turno anticipadamente**: invoca `team_wait_for_task(task_id, timeout_seconds=30)` para mantenerse en estado de espera activa hasta recibir el resultado o timeout, iterando continuamente hasta que la meta esté 100% satisfecha.
+   - Si una tarea se coordina en segundo plano o entre ventanas, utiliza `team_wait_for_task(task_id, timeout_seconds=3)` para sondear el estado de forma no bloqueante sin congelar el hilo de ejecución.
 
 2. **Memoria de Contexto 100% Autónoma (Zero Manual Checkpoints)**:
-   - Los agentes invocan `auto_track_turn(project=..., turn_summary=..., decisions=..., files_touched=[...])` automáticamente al concluir turnos clave.
+   - Los agentes invocan `auto_track_turn(project=..., summary=..., files=...)` automáticamente al concluir hitos clave.
    - El usuario no tiene que solicitar un punto de guardado manual; la persistencia es continua y a prueba de reinicios de sesión.
    - Periódicamente se valida la coherencia con `verify_context_integrity(project=...)`.
 
 3. **Auditoría Continua de Reglas (`swarm-sentinel`)**:
-   - Cada tarea antes de ser marcada como completada debe superar `sentinel_audit_task()`.
-   - Si no se cumplen el umbral de pruebas ($\ge 80\%$), el formato de Conventional Commits 1.0 o las directivas anti-slop de UI, Sentinel rechaza el entregable y alerta al enjambre.
-   - Consulta de reglas y cumplimiento en cualquier momento: `sentinel_get_rules()`, `sentinel_get_compliance_report()`.
+   - Cada tarea antes de ser marcada como completada debe superar la auditoría de calidad de Sentinel.
+   - Si no se cumple el umbral de pruebas (>=80%), el formato de Conventional Commits 1.0 o las directivas de seguridad OWASP, se rechaza el entregable y se exige remediación inmediata.
 
 4. **Verificación en Tiempo Real y Blindaje Anti-Regresiones (`swarm-tester`)**:
-   - Cada componente nuevo o modificado (UI, backend o scripts) debe validarse inmediatamente mediante `tester_verify_component(file_path=...)` o ejecutando la suite con `tester_run_suite(runner="auto")`.
+   - Cada componente nuevo o modificado (UI, backend o scripts) se valida de inmediato mediante `tester_verify_component(file_path=...)` o ejecutando la suite con `tester_run_suite(runner="auto")`.
    - Si se levantan servicios HTTP, microservicios o interfaces web, se sondea la conectividad mediante `tester_probe_endpoint(url=...)`.
-   - Los resultados de testing se sincronizan automáticamente con Sentinel (`tester_sync_with_sentinel`). Si una aserción falla, se emite una alerta prioritaria en `team-collab` y se bloquea la aprobación de la tarea.
    - La telemetría en tiempo real se visualiza en el panel web (http://localhost:4040/#tester) o en terminal mediante `ecc test --watch`.
 
-5. **Bucle Autónomo de Retroalimentación y Auto-Perfeccionamiento (`record_project_learning`)**:
-   - Cada vez que un agente supere un escollo técnico, incompatibilidad de librerías o resuelva un fallo detectado por Sentinel o Live Tester, invoca `record_project_learning(lesson="...", trigger_context="...", solution_or_rule="...", category="...")`.
-   - `get_session_bootstrap()` y `get_project_learnings()` nutren a los subagentes con estos aprendizajes en cada turno, asegurando que el equipo refine continuamente su rendimiento en el proyecto sin intervención humana.
-   - **El Panel Web es Exclusivamente de Telemetría**: El dashboard web (`http://localhost:4040`) es un monitor pasivo en tiempo real para observar el estado del enjambre, tareas, grafo GetBrain y salud de pruebas. No incluye ni requiere acciones manuales de guardado ni checkpoints de usuario.
+---
+
+## 7. Protocolo de Auto-Mantenimiento, Retroalimentación Continua y Anti-Autosabotaje
+
+Este protocolo garantiza que el enjambre de neuronas cognitivas sea auto-suficiente, aprenda de cada ciclo de trabajo y prevenga cualquier forma de degradación o auto-sabotaje.
+
+### 7.1 Auto-Mantenimiento Autónomo (Self-Maintaining Swarm)
+1. **Auto-Diagnóstico & Salud**: El sistema verifica su propia integridad de base de datos, índices FTS5 y esquemas de forma transparente mediante `verify_context_integrity()`.
+2. **Auto-Hidratación de Contexto**: Al iniciar cualquier sesión o recibir una instrucción en un proyecto existente, `@orchestrator` llama a `get_session_bootstrap()` para auto-cargar el stack tecnológico, dependencias y recuerdos previos sin requerir explicaciones redundantes del usuario.
+3. **Resiliencia SQLite WAL**: La persistencia opera bajo modo WAL con reintentos exponenciales inmediatos (`db_write_lock`), absorbiendo ráfagas de escritura concurrentes con cero deadlocks o bloqueos.
+
+### 7.2 Retroalimentación Continua (Continuous Learning & Feedback Loop)
+1. **Captura de Instintos**: Cada vez que un agente supera un obstáculo técnico, detecta un patrón de optimización o corrige un fallo detectado por testing o Sentinel, registra la lección con:
+   ```python
+   record_project_learning(
+       lesson="<regla aprendida o gotcha resuelto>",
+       trigger_context="<escenario donde aplica>",
+       solution_or_rule="<solución o invariante a seguir>",
+       category="architecture | security | performance | frontend | gotcha",
+       agent_name="<rol>"
+   )
+   ```
+2. **Reutilización Preventiva**: Antes de diseñar o implementar código nuevo, los agentes consultan `get_project_learnings(query=...)` para recuperar instintos aprendidos y no tropezar con el mismo problema dos veces.
+
+### 7.3 Invariantes Anti-Autosabotaje (Blindaje Operacional del Enjambre)
+Para erradicar los modos comunes de fallo en sistemas multi-agente, se imponen las siguientes 5 reglas inviolables:
+
+1. **Invariante de Continuidad (Anti-Pausa Prematura)**:
+   - Prohibido detenerse en mitad de una tarea compuesta para pedirle al usuario que presione TAB, cambie de agente o escriba "continúa".
+   - El `@orchestrator` asume la responsabilidad de conducir el pipeline de inicio a fin invocando a los subagentes vía `subagent(...)` hasta entregar la solución completa.
+2. **Invariante de Inspección Previa (Anti-Duplicación)**:
+   - Prohibido crear archivos paralelos, duplicar utilidades o inventar clases de estilos CSS arbitrarias.
+   - Antes de escribir código, el agente debe inspeccionar el árbol de archivos y el sistema de diseño existente para reutilizar o extender los componentes ya definidos.
+3. **Invariante de Validación Gateada (Anti-Entrega Rota)**:
+   - Prohibido marcar una tarea como completada o reportar éxito al usuario si no se han ejecutado y verificado pruebas reales (Build, Types, Lint, Tests unitarios >=80%, OWASP).
+   - Si una prueba falla, el agente debe diagnosticar, parchar y volver a probar antes de certificar.
+4. **Invariante de Cero Contaminación de Memoria (Anti-Amnesia)**:
+   - La compactación agresiva destructiva está deshabilitada (`compaction.auto = false`).
+   - Los milestones y decisiones se guardan en checkpoints atómicos en SQLite FTS5, asegurando que la memoria técnica perdure intacta a través de semanas de trabajo.
+5. **Invariante Acíclica de Delegación (Anti-Bucle Infinito)**:
+   - El flujo de trabajo sigue una tubería dirigida acíclica (DAG):
+     $$\text{Orchestrator} \longrightarrow \text{Backend} \longrightarrow \text{Frontend} \longrightarrow \text{QA/Sentinel} \longrightarrow \text{GitFlow} \longrightarrow \text{Reporte Final}$$
+   - Ningún subagente puede re-delegar en bucle cerrado a otro especialista sin aportar un artefacto medible o avance concreto en los archivos del repositorio.
+
 
 
