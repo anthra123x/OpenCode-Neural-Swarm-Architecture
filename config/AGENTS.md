@@ -49,7 +49,7 @@ Todos los agentes especializados (`@orchestrator`, `@backend`, `@frontend`, `@gi
 
 ---
 
-## 2. Persistent Context Memory Protocol (`context-memory` + `GetBrain`)
+## 2. Persistent Context Memory Protocol (`context-memory`)
 
 La memoria persistente permite conservar contexto, reglas de negocio, preferencias del usuario y decisiones arquitectónicas a través de diferentes sesiones y proyectos, eliminando la necesidad de compactación destructiva de contexto en OpenCode (`compaction.auto = false`).
 

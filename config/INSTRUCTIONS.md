@@ -121,13 +121,22 @@ Para que los agentes trabajen de forma reactiva y encadenada sin esperar a que e
      team_trigger_agent(from_agent="frontend", to_agent="qa-auditor", trigger_type="review", artifact_key="ui-spec", summary="Auditar tests y accesibilidad de la UI")
      ```
 
+### E. Invariante de Ejecución Continua del Orquestador (Zero Premature Halts)
+Para evitar que el flujo de trabajo se detenga prematuramente cuando el orquestador delega tareas a los subagentes:
+1. **Invocación Síncrona Directa**:
+   El orquestador invoca a los subagentes mediante `subagent(agent=..., prompt=..., description=...)` de manera síncrona (`background: false` o por defecto). OpenCode ejecuta al especialista hasta su conclusión y devuelve `<subagent sessionID="..." state="completed">...resultado...</subagent>` directamente en el mismo turno.
+2. **Revisión Inmediata de Progreso**:
+   El orquestador evalúa los entregables, actualiza el estado de la tarea en `team_update_task`, y en lugar de terminar el turno o decir "esperando confirmación", procede de inmediato a invocar a la siguiente neurona en la secuencia (`@backend` -> `@frontend` -> `@qa-auditor` -> `@git-flow`).
+3. **Flujo de Ejecución Continuo**:
+   La iteración no se rompe hasta que el objetivo completo del usuario ha sido verificado y certificado.
+
 ---
 
-## 4. Memoria Persistente de Contexto y Motor Zero-Compaction (`context-memory` + `GetBrain`)
+## 4. Memoria Persistente de Contexto y Motor Zero-Compaction (`context-memory`)
 
 Para evitar la pérdida de información crítica por compactación destructiva de tokens en OpenCode, se implementa una arquitectura **Zero-Compaction**:
 - **Compaginar sin Pérdida**: En `opencode.jsonc`, `"compaction": { "auto": false }`. La memoria conversacional no se trunca ni se compacta agresivamente.
-- **Checkpoints Automáticos Silenciosos**: El sistema guarda snapshots de forma automática y debounced cada vez que se completa una tarea (`team_update_task`), se publica un contrato (`team_share_artifact`) o se realiza un handoff (`team_handoff`), reflejándolos de inmediato en GetBrain sin que el usuario tenga que hacerlo manualmente.
+- **Checkpoints Automáticos Silenciosos**: El sistema guarda snapshots de forma automática y debounced cada vez que se completa una tarea (`team_update_task`), se publica un contrato (`team_share_artifact`) o se realiza un handoff (`team_handoff`), reflejándolos de inmediato en la base de datos sin que el usuario tenga que hacerlo manualmente.
 - **Persistencia en SQLite FTS5**: Las decisiones arquitectónicas, estado de archivos y próximos pasos se guardan persistentemente en base de datos indexada con búsqueda vectorial y textual completa.
 
 ### Protocolo de Persistencia y Checkpoints:

@@ -216,6 +216,9 @@ python3 tests/test_swarm_self_maintenance_and_anti_sabotage.py
 
 # Run swarm stress and continuous training test
 python3 tests/test_swarm_stress_and_training.py
+
+# Run deep execution and multi-neuron pipeline stress test
+python3 tests/test_swarm_deep_execution_and_stress.py
 ```
 
 All test suites execute without external dependencies, validating workflow continuity, multi-terminal concurrency, and zero-compaction state integrity.

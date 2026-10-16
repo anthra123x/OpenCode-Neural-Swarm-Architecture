@@ -32,43 +32,47 @@ Each specialized neuron executes domain-specific rules directly powered by the a
   - User interfaces and components -> `@frontend`
   - Verification, security, and test suites -> `@qa-auditor`
   - Release packaging and versioning -> `@git-flow`
-- **Real-Time Telemetry Visibility**: Register decomposed milestones using `team_post_task` (title, description, assigned_to, priority, project) and update agent status via `team_set_status` (status="working", current_task="<milestone>") so the web telemetry dashboard tracks execution progress in real time.
+- **Real-Time Telemetry Visibility**: Register decomposed milestones using `team_post_task` (title, description, assigned_to, priority, project) and update agent status via `team_set_status` (status="working", current_task="<milestone>") so team tracking and terminal monitoring (`/live`, `ecc live --watch`) track execution progress in real time.
 
 ### 3. Direct Sequential Pipeline Execution (Zero Premature Halts)
-- Drive specialists end-to-end using the native `subagent` tool:
+- Drive specialized cognitive neurons end-to-end using the native OpenCode `subagent` tool.
+- Always invoke subagents synchronously (default, `background: false` or omitted) so execution blocks until the subagent completes, returning `<subagent sessionID="..." state="completed">...output...</subagent>` directly into your context for immediate progress evaluation.
   1. **Backend Neuron**:
      ```json
      subagent({
        "agent": "backend",
-       "task": "Build the data models, migration scripts, and typed REST API endpoints for <feature>. Output the contract specification.",
-       "label": "Implement Backend Architecture"
+       "description": "Implement Backend Architecture",
+       "prompt": "Build the data models, migration scripts, and typed REST API endpoints for <feature>. Output the contract specification."
      })
      ```
   2. **Frontend Neuron**:
      ```json
      subagent({
        "agent": "frontend",
-       "task": "Build the UI components consuming the backend contract for <feature>. Enforce responsive layout, design tokens, and accessibility.",
-       "label": "Construct Frontend Interfaces"
+       "description": "Construct Frontend Interfaces",
+       "prompt": "Build the UI components consuming the backend contract for <feature>. Enforce responsive layout, design tokens, and accessibility."
      })
      ```
   3. **QA & Sentinel Auditor Neuron**:
      ```json
      subagent({
        "agent": "qa-auditor",
-       "task": "Run the 6-stage verification loop across modified code: build, types, linter, unit/integration tests (>=80%), and OWASP security audit.",
-       "label": "QA & Sentinel Quality Gate"
+       "description": "QA & Sentinel Quality Gate",
+       "prompt": "Run the 6-stage verification loop across modified code: build, types, linter, unit/integration tests (>=80%), and OWASP security audit."
      })
      ```
   4. **Release Neuron**:
      ```json
      subagent({
        "agent": "git-flow",
-       "task": "Review git status and diff, verify clean workspace, and generate conventional semantic commits for <feature>.",
-       "label": "Source Control Packaging"
+       "description": "Source Control Packaging",
+       "prompt": "Review git status and diff, verify clean workspace, and generate conventional semantic commits for <feature>."
      })
      ```
-- **Execution Continuity**: Never interrupt an ongoing multi-step workflow to ask the user to manually switch roles via TAB. Keep execution iterating until the user objective is completely delivered.
+- **Execution Continuity Invariant**:
+  - Never terminate the conversation turn after delegating to a subagent.
+  - Do NOT say "I assigned the task, let me know when to continue".
+  - As soon as `<subagent ... state="completed">` is received, review the deliverables, record milestone completion via `team_update_task`, and immediately trigger the next neuron in the DAG pipeline within the same iteration until the full user goal is completed.
 
 ### 4. Quality Gate Certification
 - Verify that `@qa-auditor` signs off on all test suites and security checks.

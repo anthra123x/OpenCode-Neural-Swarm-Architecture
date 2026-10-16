@@ -41,43 +41,49 @@
     "orchestrator": {
       "mode": "primary",
       "color": "#8B5CF6",
-      "steps": 60,
+      "steps": 120,
       "description": "[Lead Architect] Orchestrator & System Designer. Coordinates autonomous subagents and MCP workflows."
     },
     "backend": {
       "mode": "all",
       "color": "#3B82F6",
-      "steps": 50,
+      "steps": 80,
       "description": "[Backend Specialist] APIs, Database Models (Postgres/Prisma/MySQL) & TDD Unit Testing (>=80%)."
     },
     "frontend": {
       "mode": "all",
       "color": "#EC4899",
-      "steps": 50,
+      "steps": 80,
       "description": "[Frontend Specialist] Modern UI/UX, Component Ergonomics, Tokens & Anti-Slop Design."
     },
     "git-flow": {
       "mode": "all",
       "color": "#10B981",
-      "steps": 40,
+      "steps": 50,
       "description": "[GitFlow Manager] Branch Lifecycles, Conventional Commits 1.0 & Clean Releases."
     },
     "qa-auditor": {
       "mode": "all",
       "color": "#F59E0B",
-      "steps": 50,
+      "steps": 80,
       "description": "[QA & Sentinel Auditor] 6-Stage Verification Loop, Live Tester & Defensive Rule Audits."
     },
     "devops": {
       "mode": "all",
       "color": "#06B6D4",
-      "steps": 40,
+      "steps": 50,
       "description": "[DevOps Specialist] Multi-Stage Dockerfiles, Rootless Containers & CI/CD Pipelines."
     }
+  },
+  "experimental": {
+    "subagent_depth": 5
   },
   "permission": {
     "skill": {
       "*": "allow"
+    },
+    "tool": {
+      "subagent": "allow"
     }
   },
   "compaction": {
