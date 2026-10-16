@@ -505,6 +505,11 @@ class SwarmWebHandler(SimpleHTTPRequestHandler):
         if url == "/api/brain":
             proj = self._get_project_param()
             proj_dir = self._resolve_project_dir(proj)
+            try:
+                import importlib
+                importlib.reload(brain_builder)
+            except Exception:
+                pass
             brain_data = brain_builder.build_project_brain(proj, proj_dir)
             self._send_json(brain_data)
             return

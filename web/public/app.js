@@ -35,7 +35,7 @@ const state = {
     task: true,
     artifact: true,
     memory: true,
-    module: true
+    module: false
   },
   searchQuery: '',
   selectedNode: null
@@ -1047,6 +1047,7 @@ function closeTaskModal() {
 // GETBRAIN 2D PHYSICS KNOWLEDGE GRAPH (SUPERVISION PURA)
 // ─────────────────────────────────────────────────────────────
 let canvas, ctx;
+let canvas, ctx;
 let graphNodes = [];
 let graphLinks = [];
 let animFrameId = null;
@@ -1057,6 +1058,16 @@ let hoveredNode = null;
 let dragStart = { x: 0, y: 0 };
 let simRunning = true;
 let simAlpha = 1.0;
+let brainSearchQuery = '';
+
+const AGENT_ORBIT_CONFIG = {
+  'agent:orchestrator': { angle: -Math.PI / 2,        color: '#8B5CF6', glyph: 'SYS', title: 'Lead Architect' },
+  'agent:frontend':     { angle: -Math.PI / 6,        color: '#EC4899', glyph: 'UI',  title: 'Frontend Specialist' },
+  'agent:backend':      { angle: Math.PI / 6,         color: '#3B82F6', glyph: 'API', title: 'Backend Specialist' },
+  'agent:devops':       { angle: Math.PI / 2,         color: '#06B6D4', glyph: 'OPS', title: 'DevOps & Infra' },
+  'agent:qa-auditor':   { angle: (5 * Math.PI) / 6,   color: '#F59E0B', glyph: 'QA',  title: 'QA & Sentinel' },
+  'agent:git-flow':     { angle: (-5 * Math.PI) / 6,  color: '#10B981', glyph: 'GIT', title: 'Git Flow' }
+};
 
 function initBrainCanvas() {
   canvas = document.getElementById('brainCanvas');
@@ -1074,6 +1085,13 @@ function initBrainCanvas() {
   canvas.addEventListener('mousedown', onMouseDown);
   canvas.addEventListener('mousemove', onMouseMove);
   canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('mouseleave', () => {
+    isDragging = false;
+    draggedNode = null;
+    hoveredNode = null;
+    hideBrainTooltip();
+    drawGraph();
+  });
   canvas.addEventListener('wheel', onWheel, { passive: false });
 
   // Touch support for mobile / responsive
@@ -1106,44 +1124,96 @@ function setupBrainSimulation(nodes, links) {
   const cx = width / 2;
   const cy = height / 2;
 
-  const existingPos = {};
-  graphNodes.forEach(n => {
-    if (Number.isFinite(n.x) && Number.isFinite(n.y)) {
-      existingPos[n.id] = { x: n.x, y: n.y, vx: n.vx, vy: n.vy };
+  const linkPairs = (links || []);
+  const parentMap = {};
+  linkPairs.forEach(l => {
+    if (AGENT_ORBIT_CONFIG[l.source] && !AGENT_ORBIT_CONFIG[l.target] && !l.target.startsWith('project:')) {
+      parentMap[l.target] = l.source;
+    } else if (AGENT_ORBIT_CONFIG[l.target] && !AGENT_ORBIT_CONFIG[l.source] && !l.source.startsWith('project:')) {
+      parentMap[l.source] = l.target;
     }
   });
 
-  const typeAngles = {
-    hub: 0,
-    agent: Math.PI / 4,
-    task: Math.PI / 2,
-    artifact: (3 * Math.PI) / 4,
-    memory: Math.PI,
-    module: (5 * Math.PI) / 4
-  };
+  const satellites = {};
+  Object.keys(AGENT_ORBIT_CONFIG).forEach(k => { satellites[k] = []; });
+  satellites['hub'] = [];
 
-  graphNodes = nodes.map((n, i) => {
-    const prev = existingPos[n.id];
-    const baseAngle = typeAngles[n.type] !== undefined ? typeAngles[n.type] : (i / nodes.length) * Math.PI * 2;
-    const jitter = ((i * 37) % 100) / 100 - 0.5;
-    const radius = n.type === 'hub' ? 0 : (n.type === 'agent' ? 140 : 200 + ((i * 23) % 180));
-    const initX = cx + Math.cos(baseAngle + jitter) * radius;
-    const initY = cy + Math.sin(baseAngle + jitter) * radius;
-
-    return {
-      ...n,
-      x: prev ? prev.x : initX,
-      y: prev ? prev.y : initY,
-      vx: 0,
-      vy: 0,
-      radius: n.type === 'hub' ? 26 : (n.type === 'agent' ? 20 : 15)
-    };
+  nodes.forEach(n => {
+    if (n.type === 'hub' || AGENT_ORBIT_CONFIG[n.id]) return;
+    const p = parentMap[n.id];
+    if (p && satellites[p]) {
+      satellites[p].push(n);
+    } else {
+      satellites['hub'].push(n);
+    }
   });
 
   const nodeMap = {};
-  graphNodes.forEach(n => { nodeMap[n.id] = n; });
+  const orbitRadius = Math.min(width, height) * 0.28 || 190;
 
-  graphLinks = (links || []).map(l => ({
+  // Position Hub at center
+  nodes.forEach(n => {
+    if (n.type === 'hub') {
+      n.x = cx;
+      n.y = cy;
+      n.targetX = cx;
+      n.targetY = cy;
+      n.vx = 0;
+      n.vy = 0;
+      n.radius = 28;
+      nodeMap[n.id] = n;
+    }
+  });
+
+  // Position Agents in a symmetrical hexagon constellation
+  nodes.forEach(n => {
+    const orbit = AGENT_ORBIT_CONFIG[n.id];
+    if (orbit) {
+      const ax = cx + Math.cos(orbit.angle) * orbitRadius;
+      const ay = cy + Math.sin(orbit.angle) * orbitRadius;
+      n.x = ax;
+      n.y = ay;
+      n.targetX = ax;
+      n.targetY = ay;
+      n.vx = 0;
+      n.vy = 0;
+      n.radius = 22;
+      n.color = orbit.color;
+      nodeMap[n.id] = n;
+    }
+  });
+
+  // Position satellites fanning outward from their parent agent
+  Object.entries(satellites).forEach(([parentKey, childNodes]) => {
+    const parentNode = nodeMap[parentKey] || nodeMap['project:' + (state.project || 'omicron')] || { x: cx, y: cy };
+    const count = childNodes.length;
+    if (count === 0) return;
+
+    const orbit = AGENT_ORBIT_CONFIG[parentKey];
+    const baseAngle = orbit ? orbit.angle : 0;
+    const fanSpan = Math.min(Math.PI * 0.85, 0.28 * count);
+
+    childNodes.forEach((n, i) => {
+      const offset = count > 1 ? (i / (count - 1) - 0.5) * fanSpan : 0;
+      const angle = baseAngle + offset;
+      const dist = (parentKey === 'hub') ? 85 : 85 + ((i % 3) * 32);
+
+      const sx = parentNode.x + Math.cos(angle) * dist;
+      const sy = parentNode.y + Math.sin(angle) * dist;
+
+      n.x = sx;
+      n.y = sy;
+      n.targetX = sx;
+      n.targetY = sy;
+      n.vx = 0;
+      n.vy = 0;
+      n.radius = n.type === 'task' ? 16 : (n.type === 'artifact' ? 15 : 13);
+      nodeMap[n.id] = n;
+    });
+  });
+
+  graphNodes = nodes;
+  graphLinks = linkPairs.map(l => ({
     ...l,
     sourceNode: nodeMap[l.source],
     targetNode: nodeMap[l.target]
@@ -1159,6 +1229,13 @@ function setupBrainSimulation(nodes, links) {
   }
 }
 
+function resetConstellation() {
+  if (state.brain && state.brain.nodes) {
+    setupBrainSimulation(state.brain.nodes, state.brain.links);
+  }
+  fitGraphToView();
+}
+
 function renderLoop() {
   if (state.currentView === 'brain') {
     if (simRunning && simAlpha > 0.005) {
@@ -1172,19 +1249,20 @@ function renderLoop() {
 function updatePhysics() {
   if (!simRunning || simAlpha < 0.005) return;
 
-  const container = document.getElementById('canvasContainer');
-  const width = (container ? container.clientWidth : 0) || 900;
-  const height = (container ? container.clientHeight : 0) || 580;
-  const cx = width / 2;
-  const cy = height / 2;
+  const kAnchor = 0.08 * simAlpha;
+  const damping = 0.78;
 
-  const kRepulsion = 2200;
-  const kSpring = 0.025;
-  const targetDist = 80;
-  const damping = 0.82;
-  const centerGravity = 0.008;
+  // 1. Spring toward target constellation anchor
+  for (let i = 0; i < graphNodes.length; i++) {
+    const n = graphNodes[i];
+    if (n === draggedNode) continue;
+    if (n.targetX !== undefined) {
+      n.vx += (n.targetX - n.x) * kAnchor;
+      n.vy += (n.targetY - n.y) * kAnchor;
+    }
+  }
 
-  // Repulsion between nodes
+  // 2. Collision repulsion between visible nodes
   for (let i = 0; i < graphNodes.length; i++) {
     const a = graphNodes[i];
     if (!isNodeVisible(a)) continue;
@@ -1196,12 +1274,12 @@ function updatePhysics() {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+      const minDist = a.radius + b.radius + 18;
 
-      if (dist < 320) {
-        const eff = Math.max(28.0, dist);
-        const force = (kRepulsion / (eff * eff)) * simAlpha;
-        const fx = (dx / dist) * force;
-        const fy = (dy / dist) * force;
+      if (dist < minDist) {
+        const overlap = (minDist - dist) * 0.15 * simAlpha;
+        const fx = (dx / dist) * overlap;
+        const fy = (dy / dist) * overlap;
 
         if (a !== draggedNode) { a.vx -= fx; a.vy -= fy; }
         if (b !== draggedNode) { b.vx += fx; b.vy += fy; }
@@ -1209,34 +1287,11 @@ function updatePhysics() {
     }
   }
 
-  // Springs along links
-  for (let i = 0; i < graphLinks.length; i++) {
-    const link = graphLinks[i];
-    const a = link.sourceNode;
-    const b = link.targetNode;
-    if (!isNodeVisible(a) || !isNodeVisible(b)) continue;
-
-    const dx = b.x - a.x;
-    const dy = b.y - a.y;
-    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const disp = Math.max(-100.0, Math.min(100.0, dist - targetDist));
-    const force = disp * kSpring * simAlpha;
-
-    const fx = (dx / dist) * force;
-    const fy = (dy / dist) * force;
-
-    if (a !== draggedNode) { a.vx -= fx; a.vy -= fy; }
-    if (b !== draggedNode) { b.vx += fx; b.vy += fy; }
-  }
-
-  // Center gravity and velocity clamp
-  const maxV = 8.0 * simAlpha;
+  // 3. Apply velocity with clamp and damping
+  const maxV = 7.0 * simAlpha;
   for (let i = 0; i < graphNodes.length; i++) {
     const n = graphNodes[i];
     if (n === draggedNode) continue;
-
-    n.vx += (cx - n.x) * centerGravity * simAlpha;
-    n.vy += (cy - n.y) * centerGravity * simAlpha;
 
     n.vx *= damping;
     n.vy *= damping;
@@ -1248,7 +1303,7 @@ function updatePhysics() {
     n.y += n.vy;
   }
 
-  simAlpha *= 0.985;
+  simAlpha *= 0.96;
   if (simAlpha < 0.005) {
     simAlpha = 0;
   }
@@ -1263,6 +1318,11 @@ function isNodeVisible(n) {
 function drawGraph() {
   if (!canvas || !ctx) return;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const container = document.getElementById('canvasContainer');
+  const width = (container ? container.clientWidth : 0) || 900;
+  const height = (container ? container.clientHeight : 0) || 580;
+  const cx = width / 2;
+  const cy = height / 2;
 
   ctx.save();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1270,65 +1330,158 @@ function drawGraph() {
   ctx.translate(transform.x, transform.y);
   ctx.scale(transform.k, transform.k);
 
-  // Links
+  // Background Radar Constellation Grid
+  ctx.save();
+  ctx.strokeStyle = 'rgba(88, 166, 255, 0.04)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+
+  const rings = [90, 190, 310];
+  rings.forEach(r => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // Radial guide rays to the 6 agents
+  Object.values(AGENT_ORBIT_CONFIG).forEach(cfg => {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(cfg.angle) * 310, cy + Math.sin(cfg.angle) * 310);
+    ctx.stroke();
+  });
+  ctx.restore();
+
+  // Connected links set for hover highlighting
+  const connectedLinks = new Set();
+  const connectedNodeIds = new Set();
+  if (hoveredNode) {
+    connectedNodeIds.add(hoveredNode.id);
+    graphLinks.forEach(l => {
+      if (l.sourceNode === hoveredNode || l.targetNode === hoveredNode) {
+        connectedLinks.add(l);
+        connectedNodeIds.add(l.sourceNode.id);
+        connectedNodeIds.add(l.targetNode.id);
+      }
+    });
+  }
+
+  // Draw Links with smooth quadratic curves and agent colors
   for (let i = 0; i < graphLinks.length; i++) {
     const link = graphLinks[i];
     const a = link.sourceNode;
     const b = link.targetNode;
     if (!isNodeVisible(a) || !isNodeVisible(b)) continue;
 
+    const isConnected = hoveredNode ? connectedLinks.has(link) : false;
+    const isDimmed = hoveredNode ? !isConnected : false;
+
+    ctx.save();
     ctx.beginPath();
+    const mx = (a.x + b.x) / 2 + (cy - (a.y + b.y) / 2) * 0.06;
+    const my = (a.y + b.y) / 2 + (cx - (a.x + b.x) / 2) * 0.06;
     ctx.moveTo(a.x, a.y);
-    ctx.lineTo(b.x, b.y);
+    ctx.quadraticCurveTo(mx, my, b.x, b.y);
 
-    const isHovered = (hoveredNode && (hoveredNode === a || hoveredNode === b));
-    const isSelected = (state.selectedNode && (state.selectedNode === a || state.selectedNode === b));
-
-    if (isSelected || isHovered) {
+    const linkColor = a.type === 'agent' ? a.color : (b.type === 'agent' ? b.color : '#3B82F6');
+    if (isConnected) {
       ctx.strokeStyle = '#58a6ff';
-      ctx.lineWidth = 1.5;
-    } else {
+      ctx.lineWidth = 2.2;
+      ctx.globalAlpha = 1.0;
+    } else if (isDimmed) {
       ctx.strokeStyle = '#1e2633';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 0.8;
+      ctx.globalAlpha = 0.12;
+    } else {
+      ctx.strokeStyle = linkColor;
+      ctx.lineWidth = 1.2;
+      ctx.globalAlpha = 0.32;
     }
     ctx.stroke();
+    ctx.restore();
   }
 
-  // Nodes
+  // Draw Nodes
   for (let i = 0; i < graphNodes.length; i++) {
     const n = graphNodes[i];
     if (!isNodeVisible(n)) continue;
 
+    const isHovered = (hoveredNode === n);
     const isSelected = (state.selectedNode === n);
-    const radius = n.radius;
+    const isConnected = hoveredNode ? connectedNodeIds.has(n.id) : true;
+    const matchesSearch = brainSearchQuery ? (n.label.toLowerCase().includes(brainSearchQuery) || n.id.toLowerCase().includes(brainSearchQuery)) : true;
+    const radius = n.radius * (isHovered ? 1.2 : 1.0);
 
-    // Body
+    ctx.save();
+    if (!matchesSearch || (hoveredNode && !isConnected)) {
+      ctx.globalAlpha = 0.22;
+    } else {
+      ctx.globalAlpha = 1.0;
+    }
+
+    // Node Glow Halo
+    if (isHovered || isSelected || (brainSearchQuery && matchesSearch)) {
+      ctx.shadowColor = n.color || '#58a6ff';
+      ctx.shadowBlur = 18;
+    } else if (n.type === 'hub' || n.type === 'agent') {
+      ctx.shadowColor = n.color || '#58a6ff';
+      ctx.shadowBlur = 8;
+    }
+
+    // Outer circle
     ctx.beginPath();
     ctx.arc(n.x, n.y, radius, 0, Math.PI * 2);
     ctx.fillStyle = '#090d13';
     ctx.fill();
-    ctx.strokeStyle = isSelected ? '#58a6ff' : (n.color || '#30363d');
-    ctx.lineWidth = isSelected ? 2.5 : 1.5;
+    ctx.strokeStyle = isHovered ? '#fff' : (isSelected ? '#58a6ff' : (n.color || '#30363d'));
+    ctx.lineWidth = isHovered ? 2.8 : (n.type === 'hub' ? 3.0 : (n.type === 'agent' ? 2.2 : 1.4));
     ctx.stroke();
+
+    // Dual ring for Hub & Agents
+    if (n.type === 'hub' || n.type === 'agent') {
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, radius - 4, 0, Math.PI * 2);
+      ctx.strokeStyle = n.color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
 
     // Text Glyphs inside node (zero emojis)
     let glyphText = 'MOD';
-    if (n.type === 'hub') glyphText = 'HUB';
+    if (n.type === 'hub') glyphText = 'NEX';
     else if (n.type === 'agent') glyphText = (n.extra && n.extra.glyph) ? n.extra.glyph : 'AGT';
     else if (n.type === 'task') glyphText = 'TSK';
     else if (n.type === 'artifact') glyphText = 'SPEC';
     else if (n.type === 'memory') glyphText = n.category === 'checkpoint' ? 'CHK' : (n.category === 'learning' ? 'LRN' : 'MEM');
 
-    ctx.font = `700 ${Math.round(radius * 0.45)}px "JetBrains Mono", monospace`;
-    ctx.fillStyle = n.color || '#58a6ff';
+    ctx.shadowBlur = 0;
+    ctx.font = `700 ${Math.round(radius * 0.44)}px "JetBrains Mono", monospace`;
+    ctx.fillStyle = isHovered ? '#ffffff' : (n.color || '#58a6ff');
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(glyphText, n.x, n.y);
 
-    // Label
-    ctx.font = `${isSelected ? '700 11px' : '500 10px'} "JetBrains Mono", monospace`;
-    ctx.fillStyle = isSelected ? '#f0f6fc' : '#8b949e';
-    ctx.fillText(n.label, n.x, n.y + radius + 13);
+    // Label with anti-overlap solid pill backdrop
+    const displayLabel = n.type === 'hub' ? (state.project || 'Project') : (n.label.length > 18 ? n.label.substring(0, 16) + '..' : n.label);
+    ctx.font = `${(n.type === 'agent' || n.type === 'hub') ? '700 11px' : '500 10px'} "JetBrains Mono", monospace`;
+    const textWidth = ctx.measureText(displayLabel).width;
+    const pillPadding = 4;
+    const pillHeight = 16;
+    const pillY = n.y + radius + 7;
+
+    // Solid dark pill background behind text so links never collide
+    ctx.fillStyle = 'rgba(9, 13, 19, 0.92)';
+    ctx.fillRect(n.x - textWidth / 2 - pillPadding, pillY - pillHeight / 2, textWidth + pillPadding * 2, pillHeight);
+    ctx.strokeStyle = isHovered ? '#fff' : (n.type === 'agent' ? n.color : 'rgba(48, 54, 61, 0.7)');
+    ctx.lineWidth = 1;
+    ctx.strokeRect(n.x - textWidth / 2 - pillPadding, pillY - pillHeight / 2, textWidth + pillPadding * 2, pillHeight);
+
+    // Text label inside pill
+    ctx.fillStyle = isHovered ? '#ffffff' : (n.type === 'agent' ? '#f0f6fc' : '#8b949e');
+    ctx.textBaseline = 'middle';
+    ctx.fillText(displayLabel, n.x, pillY);
+
+    ctx.restore();
   }
 
   ctx.restore();
@@ -1350,14 +1503,14 @@ function fitGraphToView() {
     if (n.y > maxY) maxY = n.y;
   }
 
-  const graphWidth = Math.max((maxX - minX) + 140, 200);
-  const graphHeight = Math.max((maxY - minY) + 140, 200);
+  const graphWidth = Math.max((maxX - minX) + 140, 240);
+  const graphHeight = Math.max((maxY - minY) + 140, 240);
   const graphCenterX = (minX + maxX) / 2;
   const graphCenterY = (minY + maxY) / 2;
 
   const scaleX = width / graphWidth;
   const scaleY = height / graphHeight;
-  const k = Math.min(Math.max(Math.min(scaleX, scaleY) * 0.88, 0.25), 1.6);
+  const k = Math.min(Math.max(Math.min(scaleX, scaleY) * 0.90, 0.35), 1.4);
 
   transform.k = k;
   transform.x = width / 2 - graphCenterX * k;
@@ -1372,25 +1525,20 @@ function zoomBrain(factor) {
   const cx = width / 2;
   const cy = height / 2;
 
-  const newK = Math.min(Math.max(transform.k * factor, 0.15), 3.5);
+  const newK = Math.min(Math.max(transform.k * factor, 0.2), 3.5);
   transform.x = cx - (cx - transform.x) * (newK / transform.k);
   transform.y = cy - (cy - transform.y) * (newK / transform.k);
   transform.k = newK;
   drawGraph();
 }
 
-function toggleSimPhysics() {
-  simRunning = !simRunning;
-  if (simRunning) {
-    simAlpha = 0.5;
-  }
-  const btn = document.getElementById('btnToggleSim');
-  if (btn) btn.textContent = simRunning ? '[pausar]' : '[reanudar]';
+function onBrainSearch(val) {
+  brainSearchQuery = (val || '').trim().toLowerCase();
   drawGraph();
 }
 
 // ─────────────────────────────────────────────────────────────
-// CANVAS INTERACTION (PAN, ZOOM, DRAG, INSPECT)
+// CANVAS INTERACTION (PAN, ZOOM, DRAG, INSPECT, TOOLTIP)
 // ─────────────────────────────────────────────────────────────
 function getMouseGraphPos(e) {
   const rect = canvas.getBoundingClientRect();
@@ -1410,11 +1558,30 @@ function findNodeAt(x, y) {
     if (!isNodeVisible(n)) continue;
     const dx = n.x - x;
     const dy = n.y - y;
-    if (dx * dx + dy * dy <= n.radius * n.radius * 1.6) {
+    if (dx * dx + dy * dy <= (n.radius + 6) * (n.radius + 6)) {
       return n;
     }
   }
   return null;
+}
+
+function showBrainTooltip(node, screenX, screenY) {
+  const tt = document.getElementById('brainTooltip');
+  if (!tt) return;
+  const summary = node.details ? node.details.split('\n')[0].replace(/[#*`]/g, '') : '';
+  tt.innerHTML = `
+    <div class="tt-type" style="color: ${node.color || '#58a6ff'}">[${node.type.toUpperCase()}] ${escapeHtml(node.category || '')}</div>
+    <div class="tt-title">${escapeHtml(node.label)}</div>
+    ${summary ? `<div class="tt-meta">${escapeHtml(summary)}</div>` : ''}
+  `;
+  tt.style.left = `${screenX}px`;
+  tt.style.top = `${screenY}px`;
+  tt.style.display = 'block';
+}
+
+function hideBrainTooltip() {
+  const tt = document.getElementById('brainTooltip');
+  if (tt) tt.style.display = 'none';
 }
 
 function onMouseDown(e) {
@@ -1425,7 +1592,8 @@ function onMouseDown(e) {
     draggedNode = hit;
     state.selectedNode = hit;
     inspectNode(hit);
-    simAlpha = Math.max(simAlpha, 0.3);
+    simAlpha = Math.max(simAlpha, 0.4);
+    simRunning = true;
   } else {
     isDragging = true;
     dragStart = { x: pos.screenX - transform.x, y: pos.screenY - transform.y };
@@ -1438,20 +1606,35 @@ function onMouseMove(e) {
   if (draggedNode) {
     draggedNode.x = pos.x;
     draggedNode.y = pos.y;
+    draggedNode.targetX = pos.x;
+    draggedNode.targetY = pos.y;
     draggedNode.vx = 0;
     draggedNode.vy = 0;
-    simAlpha = Math.max(simAlpha, 0.2);
+    simAlpha = Math.max(simAlpha, 0.25);
+    simRunning = true;
+    hideBrainTooltip();
     return;
   }
 
   if (isDragging) {
     transform.x = pos.screenX - dragStart.x;
     transform.y = pos.screenY - dragStart.y;
+    hideBrainTooltip();
     return;
   }
 
   const hit = findNodeAt(pos.x, pos.y);
-  hoveredNode = hit;
+  if (hit !== hoveredNode) {
+    hoveredNode = hit;
+    if (hit) {
+      showBrainTooltip(hit, pos.screenX, pos.screenY);
+    } else {
+      hideBrainTooltip();
+    }
+    drawGraph();
+  } else if (hit) {
+    showBrainTooltip(hit, pos.screenX, pos.screenY);
+  }
   canvas.style.cursor = hit ? 'pointer' : (isDragging ? 'grabbing' : 'grab');
 }
 
@@ -1463,11 +1646,11 @@ function onMouseUp() {
 
 function onWheel(e) {
   e.preventDefault();
-  const zoomFactor = 1.1;
+  const zoomFactor = 1.12;
   const pos = getMouseGraphPos(e);
 
   const newK = e.deltaY < 0 ? transform.k * zoomFactor : transform.k / zoomFactor;
-  if (newK < 0.15 || newK > 4.0) return;
+  if (newK < 0.2 || newK > 4.0) return;
 
   transform.x = pos.screenX - pos.x * newK;
   transform.y = pos.screenY - pos.y * newK;
@@ -1484,7 +1667,8 @@ function onTouchStart(e) {
       draggedNode = hit;
       state.selectedNode = hit;
       inspectNode(hit);
-      simAlpha = Math.max(simAlpha, 0.3);
+      simAlpha = Math.max(simAlpha, 0.4);
+      simRunning = true;
     } else {
       isDragging = true;
       dragStart = { x: pos.screenX - transform.x, y: pos.screenY - transform.y };
@@ -1500,7 +1684,10 @@ function onTouchMove(e) {
     if (draggedNode) {
       draggedNode.x = pos.x;
       draggedNode.y = pos.y;
-      simAlpha = Math.max(simAlpha, 0.2);
+      draggedNode.targetX = pos.x;
+      draggedNode.targetY = pos.y;
+      simAlpha = Math.max(simAlpha, 0.25);
+      simRunning = true;
     } else if (isDragging) {
       transform.x = pos.screenX - dragStart.x;
       transform.y = pos.screenY - dragStart.y;

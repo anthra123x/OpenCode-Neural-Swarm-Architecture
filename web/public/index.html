@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.3.5">
+  <link rel="stylesheet" href="style.css?v=2.4.0">
 </head>
 <body class="theme-linux">
   <!-- Minimalist Linux Terminal Top Bar -->
@@ -226,25 +226,27 @@
             <button class="filter-btn active" data-type="memory" onclick="toggleFilter('memory')">
               <span class="dot dot-gray"></span> memorias
             </button>
-            <button class="filter-btn active" data-type="module" onclick="toggleFilter('module')">
+            <button class="filter-btn" data-type="module" onclick="toggleFilter('module')">
               <span class="dot dot-dim"></span> modulos
             </button>
           </div>
 
           <div class="toolbar-controls">
+            <input type="text" id="brainSearchInput" class="telemetry-search-input" placeholder="buscar nodo..." oninput="onBrainSearch(this.value)" style="height: 24px; padding: 2px 8px; font-size: 10px; width: 120px;" title="Buscar nodos por nombre, id o categoria">
+            <button class="filter-btn" onclick="resetConstellation()" title="Restaurar diseño orbital perfecto">[constelacion]</button>
             <button class="filter-btn" onclick="zoomBrain(1.2)" title="Acercar (Zoom In)">[+]</button>
             <button class="filter-btn" onclick="zoomBrain(0.8)" title="Alejar (Zoom Out)">[-]</button>
-            <button class="filter-btn" onclick="fitGraphToView()" title="Centrar y ajustar grafo a la pantalla">[centrar vista]</button>
-            <button class="filter-btn" id="btnToggleSim" onclick="toggleSimPhysics()" title="Pausar o reanudar física">[pausar]</button>
+            <button class="filter-btn" onclick="fitGraphToView()" title="Centrar y ajustar grafo a la pantalla">[centrar]</button>
           </div>
 
           <div class="toolbar-info">
-            <span class="hint-text">arrastrar · rueda/[+][-] zoom · clic en nodo para inspeccionar</span>
+            <span class="hint-text">arrastrar · rueda/[+][-] zoom · clic para detalles</span>
           </div>
         </div>
 
         <div class="canvas-container" id="canvasContainer">
           <canvas id="brainCanvas"></canvas>
+          <div class="brain-tooltip" id="brainTooltip" style="display: none;"></div>
           
           <!-- Node Inspector Drawer (Clean Floating Overlay, Hidden by Default) -->
           <aside class="node-inspector" id="nodeInspector" style="display: none;">
@@ -524,6 +526,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.3.5"></script>
+  <script src="app.js?v=2.4.0"></script>
 </body>
 </html>

@@ -40,13 +40,16 @@ def get_db_connection(db_path):
     except Exception:
         return None
 
-def scan_project_modules(project_dir, max_files=40):
+def scan_project_modules(project_dir, max_files=8):
     """
     Intelligently scans the project workspace to discover core architectural
     files, UI components, API routes, DB models, manifests and tests.
     """
+    if not project_dir:
+        return []
     p = Path(project_dir).resolve()
-    if not p.is_dir():
+    # Guard: never recursively scan the entire home directory or filesystem root!
+    if not p.is_dir() or p == Path.home() or p == Path("/"):
         return []
 
     ignore_dirs = {
@@ -111,23 +114,11 @@ def scan_project_modules(project_dir, max_files=40):
         pass
 
     result = []
-    # Balanced selection of architectural modules
-    for item in categorized["manifest"][:6]:
-        result.append({"path": item[0], "name": item[1], "category": item[2], "size": item[3]})
-    for item in categorized["entrypoint"][:4]:
-        result.append({"path": item[0], "name": item[1], "category": item[2], "size": item[3]})
-    for item in categorized["ui_component"][:12]:
-        result.append({"path": item[0], "name": item[1], "category": item[2], "size": item[3]})
-    for item in categorized["api_route"][:8]:
-        result.append({"path": item[0], "name": item[1], "category": item[2], "size": item[3]})
-    for item in categorized["db_model"][:6]:
-        result.append({"path": item[0], "name": item[1], "category": item[2], "size": item[3]})
-    for item in categorized["logic_service"][:6]:
-        result.append({"path": item[0], "name": item[1], "category": item[2], "size": item[3]})
-    for item in categorized["test_suite"][:4]:
-        result.append({"path": item[0], "name": item[1], "category": item[2], "size": item[3]})
-    for item in categorized["rule_doc"][:2]:
-        result.append({"path": item[0], "name": item[1], "category": item[2], "size": item[3]})
+    # Curated selection of core architectural modules (max 8 total)
+    for cat in ["manifest", "entrypoint", "ui_component", "api_route", "db_model", "test_suite"]:
+        for item in categorized[cat][:1]:
+            if len(result) < 8:
+                result.append({"path": item[0], "name": item[1], "category": item[2], "size": item[3]})
 
     return result
 

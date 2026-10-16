@@ -858,6 +858,42 @@ body.theme-linux {
   cursor: grabbing;
 }
 
+/* Floating HUD Tooltip for Nodes */
+.brain-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(13, 17, 23, 0.95);
+  border: 1px solid var(--border-active);
+  border-radius: var(--radius-xs);
+  padding: 8px 12px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-main);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
+  z-index: 55;
+  max-width: 280px;
+  transform: translate(-50%, -125%);
+  transition: opacity 0.12s ease;
+  line-height: 1.4;
+}
+.brain-tooltip .tt-type {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+.brain-tooltip .tt-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 2px;
+  word-break: break-word;
+}
+.brain-tooltip .tt-meta {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
 /* Graph Legend Overlay */
 .brain-legend {
   position: absolute;
