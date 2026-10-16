@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=2.3.0">
+  <link rel="stylesheet" href="style.css?v=2.3.5">
 </head>
 <body class="theme-linux">
   <!-- Minimalist Linux Terminal Top Bar -->
@@ -231,8 +231,15 @@
             </button>
           </div>
 
+          <div class="toolbar-controls">
+            <button class="filter-btn" onclick="zoomBrain(1.2)" title="Acercar (Zoom In)">[+]</button>
+            <button class="filter-btn" onclick="zoomBrain(0.8)" title="Alejar (Zoom Out)">[-]</button>
+            <button class="filter-btn" onclick="fitGraphToView()" title="Centrar y ajustar grafo a la pantalla">[centrar vista]</button>
+            <button class="filter-btn" id="btnToggleSim" onclick="toggleSimPhysics()" title="Pausar o reanudar física">[pausar]</button>
+          </div>
+
           <div class="toolbar-info">
-            <span class="hint-text">arrastrar para inspeccionar · rueda para zoom · clic en nodo para detalles</span>
+            <span class="hint-text">arrastrar · rueda/[+][-] zoom · clic en nodo para inspeccionar</span>
           </div>
         </div>
 
@@ -517,6 +524,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=2.3.0"></script>
+  <script src="app.js?v=2.3.5"></script>
 </body>
 </html>

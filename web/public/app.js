@@ -99,11 +99,10 @@ function switchView(viewName) {
   if (viewName === 'brain') {
     requestAnimationFrame(() => {
       resizeCanvas();
-      if (state.brain && state.brain.nodes && (!graphNodes || graphNodes.length === 0)) {
+      if (state.brain && state.brain.nodes && state.brain.nodes.length > 0) {
         setupBrainSimulation(state.brain.nodes, state.brain.links);
-      } else {
-        drawGraph();
       }
+      setTimeout(fitGraphToView, 80);
     });
     fetchBrainGraph();
   } else if (viewName === 'sentinel') {
@@ -1057,49 +1056,87 @@ let draggedNode = null;
 let hoveredNode = null;
 let dragStart = { x: 0, y: 0 };
 let simRunning = true;
+let simAlpha = 1.0;
 
 function initBrainCanvas() {
   canvas = document.getElementById('brainCanvas');
   if (!canvas) return;
   ctx = canvas.getContext('2d');
 
-  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    if (state.currentView === 'brain') {
+      drawGraph();
+    }
+  });
   resizeCanvas();
 
   canvas.addEventListener('mousedown', onMouseDown);
   canvas.addEventListener('mousemove', onMouseMove);
   canvas.addEventListener('mouseup', onMouseUp);
   canvas.addEventListener('wheel', onWheel, { passive: false });
+
+  // Touch support for mobile / responsive
+  canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+  canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+  canvas.addEventListener('touchend', onTouchEnd);
 }
 
 function resizeCanvas() {
   const container = document.getElementById('canvasContainer');
   if (!container || !canvas) return;
-  canvas.width = container.clientWidth;
-  canvas.height = container.clientHeight;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const width = container.clientWidth || 900;
+  const height = container.clientHeight || 580;
+  if (width === 0 || height === 0) return;
+
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+  canvas.style.width = width + 'px';
+  canvas.style.height = height + 'px';
 }
 
 function setupBrainSimulation(nodes, links) {
   if (!nodes || nodes.length === 0) return;
 
-  const width = canvas.width || 800;
-  const height = canvas.height || 600;
+  resizeCanvas();
+  const container = document.getElementById('canvasContainer');
+  const width = (container ? container.clientWidth : 0) || 900;
+  const height = (container ? container.clientHeight : 0) || 580;
+  const cx = width / 2;
+  const cy = height / 2;
 
   const existingPos = {};
-  graphNodes.forEach(n => { existingPos[n.id] = { x: n.x, y: n.y, vx: n.vx, vy: n.vy }; });
+  graphNodes.forEach(n => {
+    if (Number.isFinite(n.x) && Number.isFinite(n.y)) {
+      existingPos[n.id] = { x: n.x, y: n.y, vx: n.vx, vy: n.vy };
+    }
+  });
+
+  const typeAngles = {
+    hub: 0,
+    agent: Math.PI / 4,
+    task: Math.PI / 2,
+    artifact: (3 * Math.PI) / 4,
+    memory: Math.PI,
+    module: (5 * Math.PI) / 4
+  };
 
   graphNodes = nodes.map((n, i) => {
-    const angle = (i / nodes.length) * Math.PI * 2;
-    const radius = 100 + (Math.random() * 220);
     const prev = existingPos[n.id];
+    const baseAngle = typeAngles[n.type] !== undefined ? typeAngles[n.type] : (i / nodes.length) * Math.PI * 2;
+    const jitter = ((i * 37) % 100) / 100 - 0.5;
+    const radius = n.type === 'hub' ? 0 : (n.type === 'agent' ? 140 : 200 + ((i * 23) % 180));
+    const initX = cx + Math.cos(baseAngle + jitter) * radius;
+    const initY = cy + Math.sin(baseAngle + jitter) * radius;
 
     return {
       ...n,
-      x: prev ? prev.x : width / 2 + Math.cos(angle) * radius,
-      y: prev ? prev.y : height / 2 + Math.sin(angle) * radius,
-      vx: prev ? prev.vx : (Math.random() - 0.5) * 2,
-      vy: prev ? prev.vy : (Math.random() - 0.5) * 2,
-      radius: n.type === 'hub' ? 28 : (n.type === 'agent' ? 22 : 16)
+      x: prev ? prev.x : initX,
+      y: prev ? prev.y : initY,
+      vx: 0,
+      vy: 0,
+      radius: n.type === 'hub' ? 26 : (n.type === 'agent' ? 20 : 15)
     };
   });
 
@@ -1112,6 +1149,11 @@ function setupBrainSimulation(nodes, links) {
     targetNode: nodeMap[l.target]
   })).filter(l => l.sourceNode && l.targetNode);
 
+  simAlpha = 1.0;
+  simRunning = true;
+
+  setTimeout(fitGraphToView, 60);
+
   if (!animFrameId) {
     animFrameId = requestAnimationFrame(renderLoop);
   }
@@ -1119,7 +1161,7 @@ function setupBrainSimulation(nodes, links) {
 
 function renderLoop() {
   if (state.currentView === 'brain') {
-    if (simRunning) {
+    if (simRunning && simAlpha > 0.005) {
       updatePhysics();
     }
     drawGraph();
@@ -1128,15 +1170,21 @@ function renderLoop() {
 }
 
 function updatePhysics() {
-  const kRepulsion = 1400;
-  const kSpring = 0.04;
-  const targetDist = 90;
-  const damping = 0.88;
-  const centerGravity = 0.015;
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
+  if (!simRunning || simAlpha < 0.005) return;
 
-  // Repulsion
+  const container = document.getElementById('canvasContainer');
+  const width = (container ? container.clientWidth : 0) || 900;
+  const height = (container ? container.clientHeight : 0) || 580;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  const kRepulsion = 2200;
+  const kSpring = 0.025;
+  const targetDist = 80;
+  const damping = 0.82;
+  const centerGravity = 0.008;
+
+  // Repulsion between nodes
   for (let i = 0; i < graphNodes.length; i++) {
     const a = graphNodes[i];
     if (!isNodeVisible(a)) continue;
@@ -1147,11 +1195,11 @@ function updatePhysics() {
 
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      const distSq = dx * dx + dy * dy || 1;
-      const dist = Math.sqrt(distSq);
+      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
-      if (dist < 350) {
-        const force = kRepulsion / distSq;
+      if (dist < 320) {
+        const eff = Math.max(28.0, dist);
+        const force = (kRepulsion / (eff * eff)) * simAlpha;
         const fx = (dx / dist) * force;
         const fy = (dy / dist) * force;
 
@@ -1161,7 +1209,7 @@ function updatePhysics() {
     }
   }
 
-  // Springs
+  // Springs along links
   for (let i = 0; i < graphLinks.length; i++) {
     const link = graphLinks[i];
     const a = link.sourceNode;
@@ -1171,8 +1219,8 @@ function updatePhysics() {
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-    const displacement = dist - targetDist;
-    const force = displacement * kSpring;
+    const disp = Math.max(-100.0, Math.min(100.0, dist - targetDist));
+    const force = disp * kSpring * simAlpha;
 
     const fx = (dx / dist) * force;
     const fy = (dy / dist) * force;
@@ -1181,19 +1229,28 @@ function updatePhysics() {
     if (b !== draggedNode) { b.vx += fx; b.vy += fy; }
   }
 
-  // Center Gravity
+  // Center gravity and velocity clamp
+  const maxV = 8.0 * simAlpha;
   for (let i = 0; i < graphNodes.length; i++) {
     const n = graphNodes[i];
     if (n === draggedNode) continue;
 
-    n.vx += (cx - n.x) * centerGravity;
-    n.vy += (cy - n.y) * centerGravity;
+    n.vx += (cx - n.x) * centerGravity * simAlpha;
+    n.vy += (cy - n.y) * centerGravity * simAlpha;
 
     n.vx *= damping;
     n.vy *= damping;
 
+    n.vx = Math.max(-maxV, Math.min(maxV, n.vx));
+    n.vy = Math.max(-maxV, Math.min(maxV, n.vy));
+
     n.x += n.vx;
     n.y += n.vy;
+  }
+
+  simAlpha *= 0.985;
+  if (simAlpha < 0.005) {
+    simAlpha = 0;
   }
 }
 
@@ -1204,9 +1261,12 @@ function isNodeVisible(n) {
 }
 
 function drawGraph() {
+  if (!canvas || !ctx) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
   ctx.save();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+  ctx.scale(dpr, dpr);
   ctx.translate(transform.x, transform.y);
   ctx.scale(transform.k, transform.k);
 
@@ -1274,6 +1334,61 @@ function drawGraph() {
   ctx.restore();
 }
 
+function fitGraphToView() {
+  const visibleNodes = graphNodes.filter(isNodeVisible);
+  if (visibleNodes.length === 0) return;
+
+  const container = document.getElementById('canvasContainer');
+  const width = (container ? container.clientWidth : 0) || 900;
+  const height = (container ? container.clientHeight : 0) || 580;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const n of visibleNodes) {
+    if (n.x < minX) minX = n.x;
+    if (n.x > maxX) maxX = n.x;
+    if (n.y < minY) minY = n.y;
+    if (n.y > maxY) maxY = n.y;
+  }
+
+  const graphWidth = Math.max((maxX - minX) + 140, 200);
+  const graphHeight = Math.max((maxY - minY) + 140, 200);
+  const graphCenterX = (minX + maxX) / 2;
+  const graphCenterY = (minY + maxY) / 2;
+
+  const scaleX = width / graphWidth;
+  const scaleY = height / graphHeight;
+  const k = Math.min(Math.max(Math.min(scaleX, scaleY) * 0.88, 0.25), 1.6);
+
+  transform.k = k;
+  transform.x = width / 2 - graphCenterX * k;
+  transform.y = height / 2 - graphCenterY * k;
+  drawGraph();
+}
+
+function zoomBrain(factor) {
+  const container = document.getElementById('canvasContainer');
+  const width = (container ? container.clientWidth : 0) || 900;
+  const height = (container ? container.clientHeight : 0) || 580;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  const newK = Math.min(Math.max(transform.k * factor, 0.15), 3.5);
+  transform.x = cx - (cx - transform.x) * (newK / transform.k);
+  transform.y = cy - (cy - transform.y) * (newK / transform.k);
+  transform.k = newK;
+  drawGraph();
+}
+
+function toggleSimPhysics() {
+  simRunning = !simRunning;
+  if (simRunning) {
+    simAlpha = 0.5;
+  }
+  const btn = document.getElementById('btnToggleSim');
+  if (btn) btn.textContent = simRunning ? '[pausar]' : '[reanudar]';
+  drawGraph();
+}
+
 // ─────────────────────────────────────────────────────────────
 // CANVAS INTERACTION (PAN, ZOOM, DRAG, INSPECT)
 // ─────────────────────────────────────────────────────────────
@@ -1295,7 +1410,7 @@ function findNodeAt(x, y) {
     if (!isNodeVisible(n)) continue;
     const dx = n.x - x;
     const dy = n.y - y;
-    if (dx * dx + dy * dy <= n.radius * n.radius * 1.5) {
+    if (dx * dx + dy * dy <= n.radius * n.radius * 1.6) {
       return n;
     }
   }
@@ -1310,6 +1425,7 @@ function onMouseDown(e) {
     draggedNode = hit;
     state.selectedNode = hit;
     inspectNode(hit);
+    simAlpha = Math.max(simAlpha, 0.3);
   } else {
     isDragging = true;
     dragStart = { x: pos.screenX - transform.x, y: pos.screenY - transform.y };
@@ -1324,6 +1440,7 @@ function onMouseMove(e) {
     draggedNode.y = pos.y;
     draggedNode.vx = 0;
     draggedNode.vy = 0;
+    simAlpha = Math.max(simAlpha, 0.2);
     return;
   }
 
@@ -1350,17 +1467,59 @@ function onWheel(e) {
   const pos = getMouseGraphPos(e);
 
   const newK = e.deltaY < 0 ? transform.k * zoomFactor : transform.k / zoomFactor;
-  if (newK < 0.2 || newK > 4.0) return;
+  if (newK < 0.15 || newK > 4.0) return;
 
   transform.x = pos.screenX - pos.x * newK;
   transform.y = pos.screenY - pos.y * newK;
   transform.k = newK;
+  drawGraph();
+}
+
+function onTouchStart(e) {
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    const pos = getMouseGraphPos(t);
+    const hit = findNodeAt(pos.x, pos.y);
+    if (hit) {
+      draggedNode = hit;
+      state.selectedNode = hit;
+      inspectNode(hit);
+      simAlpha = Math.max(simAlpha, 0.3);
+    } else {
+      isDragging = true;
+      dragStart = { x: pos.screenX - transform.x, y: pos.screenY - transform.y };
+    }
+    e.preventDefault();
+  }
+}
+
+function onTouchMove(e) {
+  if (e.touches.length === 1) {
+    const t = e.touches[0];
+    const pos = getMouseGraphPos(t);
+    if (draggedNode) {
+      draggedNode.x = pos.x;
+      draggedNode.y = pos.y;
+      simAlpha = Math.max(simAlpha, 0.2);
+    } else if (isDragging) {
+      transform.x = pos.screenX - dragStart.x;
+      transform.y = pos.screenY - dragStart.y;
+    }
+    e.preventDefault();
+  }
+}
+
+function onTouchEnd() {
+  isDragging = false;
+  draggedNode = null;
 }
 
 function toggleFilter(type) {
   state.brainFilters[type] = !state.brainFilters[type];
   const btn = document.querySelector(`.filter-btn[data-type="${type}"]`);
   if (btn) btn.classList.toggle('active', state.brainFilters[type]);
+  simAlpha = Math.max(simAlpha, 0.4);
+  simRunning = true;
   drawGraph();
 }
 

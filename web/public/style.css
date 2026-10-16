@@ -89,23 +89,28 @@ body.theme-linux {
    TOP STATUS BAR (TMUX / POLYBAR / LINUX TERMINAL STYLE)
 ───────────────────────────────────────────────────────────── */
 .app-header {
-  height: 46px;
+  min-height: 48px;
+  height: auto;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 6px 16px;
   position: sticky;
   top: 0;
   z-index: 50;
   user-select: none;
+  flex-wrap: wrap;
+  gap: 8px 12px;
 }
 
 .header-left {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .brand-block {
@@ -195,6 +200,13 @@ body.theme-linux {
   padding: 3px;
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
+  overflow-x: auto;
+  max-width: 100%;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.nav-tabs::-webkit-scrollbar {
+  display: none;
 }
 .nav-tab {
   display: flex;
@@ -344,8 +356,8 @@ body.theme-linux {
 ───────────────────────────────────────────────────────────── */
 .agents-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 10px;
 }
 .agent-skeleton {
   grid-column: 1 / -1;
@@ -366,6 +378,7 @@ body.theme-linux {
   gap: 8px;
   transition: var(--transition);
   position: relative;
+  min-width: 0;
 }
 .agent-card:hover {
   border-color: var(--border-active);
@@ -428,6 +441,7 @@ body.theme-linux {
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
   padding: 6px 8px;
+  min-width: 0;
 }
 .task-label {
   font-size: 9px;
@@ -438,9 +452,14 @@ body.theme-linux {
 .task-text {
   font-size: 11px;
   color: var(--text-main);
-  white-space: nowrap;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.35;
+  min-height: 2.7em;
+  word-break: break-word;
 }
 
 .agent-footer {
@@ -765,18 +784,28 @@ body.theme-linux {
 }
 
 .brain-toolbar {
-  height: 40px;
+  min-height: 42px;
+  height: auto;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
+  padding: 6px 12px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .toolbar-group {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
+}
+.toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
 }
 .toolbar-label {
   font-size: 10px;
@@ -814,8 +843,8 @@ body.theme-linux {
 .canvas-container {
   position: relative;
   width: 100%;
-  height: calc(100vh - 120px);
-  min-height: 580px;
+  height: calc(100vh - 130px);
+  min-height: 520px;
   background: var(--bg-base);
   overflow: hidden;
 }
@@ -1118,11 +1147,37 @@ body.theme-linux {
   color: var(--text-dim);
 }
 
-/* Responsive Breakpoints */
-@media (max-width: 1100px) {
-  .dashboard-split, .bottom-split {
+/* ─────────────────────────────────────────────────────────────
+   RESPONSIVE BREAKPOINTS (DESKTOP, TABLET, MOBILE)
+───────────────────────────────────────────────────────────── */
+@media (min-width: 1440px) {
+  .agents-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (max-width: 1439px) and (min-width: 1080px) {
+  .agents-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1240px) {
+  .dashboard-split {
     grid-template-columns: 1fr;
   }
+}
+
+@media (max-width: 1079px) and (min-width: 680px) {
+  .agents-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .bottom-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) {
   .telemetry-metrics-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -1133,17 +1188,54 @@ body.theme-linux {
 
 @media (max-width: 768px) {
   .app-header {
-    height: auto;
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
     padding: 8px 12px;
     gap: 8px;
   }
+  .header-left {
+    justify-content: space-between;
+  }
   .header-right {
     flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .canvas-container {
+    height: calc(100vh - 200px);
+    min-height: 420px;
+  }
+  .brain-legend {
+    flex-wrap: wrap;
+    bottom: 8px;
+    left: 8px;
+    max-width: calc(100% - 16px);
+    gap: 6px;
+    font-size: 9px;
+  }
+  .node-inspector {
+    top: 8px;
+    right: 8px;
+    left: 8px;
+    width: auto;
+    max-width: none;
+  }
+}
+
+@media (max-width: 679px) {
+  .agents-grid {
+    grid-template-columns: 1fr;
   }
   .kanban-columns {
     grid-template-columns: 1fr;
+  }
+  .telemetry-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+  .bottom-split {
+    grid-template-columns: 1fr;
+  }
+  .telemetry-mode-pill {
+    display: none;
   }
 }
 
