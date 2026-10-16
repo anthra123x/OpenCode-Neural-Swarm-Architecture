@@ -46,16 +46,17 @@ export default {
       }
     }
 
-    const webUrl = `http://127.0.0.1:${webPort}/?project=${encodeURIComponent(projectName)}`
+    const baseUrl = `http://localhost:${webPort}`
+    const cockpitUrl = `http://localhost:${webPort}/?project=${encodeURIComponent(projectName)}`
     process.env.OPENCODE_WEB_PORT = webPort
-    process.env.OPENCODE_WEB_URL = webUrl
+    process.env.OPENCODE_WEB_URL = baseUrl
 
     if (ctx?.agent?.transform) {
       await ctx.agent.transform((editor: any) => {
         const orchestrator = editor.get("orchestrator")
         if (orchestrator) {
           editor.update("orchestrator", (agent: any) => {
-            agent.description = `[Swarm Lead] Orchestrator. Cockpit: ${webUrl} | GetBrain: ${webUrl}#brain | Live Tester: ${webUrl}#tester`
+            agent.description = `[Swarm Lead] Orchestrator. Cockpit: ${cockpitUrl} | GetBrain: ${cockpitUrl}#brain | Live Tester: ${cockpitUrl}#tester`
           })
         }
       })

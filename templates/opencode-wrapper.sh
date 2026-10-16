@@ -36,18 +36,29 @@ if [ -f "$SERVER_SCRIPT" ]; then
   fi
 fi
 
+# Intercept quick CLI command: 'opencode web'
+if [ "$1" = "web" ] || [ "$1" = "--web" ]; then
+  echo -e "\033[1;38;5;141mOpenCode ── \033[1;38;5;51m[ TELEMETRIA WEB ]\033[0m"
+  echo -e "\033[38;5;220m  -> Workspace: \033[1;37m${PROJECT_NAME}\033[0m"
+  echo -e "\033[38;5;39m  -> Sesion Web: \033[1;4;38;5;75mhttp://localhost:${SERVER_PORT}\033[0m"
+  echo ""
+  xdg-open "http://localhost:${SERVER_PORT}/?project=${PROJECT_NAME}" 2>/dev/null || sensible-browser "http://localhost:${SERVER_PORT}/?project=${PROJECT_NAME}" 2>/dev/null || true
+  exit 0
+fi
+
 # Set terminal window title with Swarm branding
 if [[ -t 1 ]]; then
-  echo -ne "\033]0;⚡ ᴏᴘᴇɴᴄᴏᴅᴇ ⟪ ꜱᴡᴀʀᴍ ᴇᴅɪᴛɪᴏɴ ⟫ — ${PROJECT_NAME}\007"
+  echo -ne "\033]0;OPENCODE [SWARM] — ${PROJECT_NAME}\007"
 fi
 
 # Display distinctive Swarm identity banner on interactive startup
 if [[ -t 1 ]] && [ "$#" -eq 0 ]; then
-  echo -e "\033[1;38;5;141m⚡ OpenCode ── \033[1;38;5;51m⟪ SWARM EDITION v2.0 ⟫\033[0m"
-  echo -e "\033[38;5;220m  ↳ Alias: \033[1;37mopencode-swarm\033[0m \033[2m(Multi-Agent Autonomous Swarm & Live Verification)\033[0m"
-  echo -e "\033[38;5;102m  ↳ Workspace: \033[38;5;48m${PROJECT_NAME}\033[0m \033[2m| Cockpit:\033[0m \033[4;38;5;75mhttp://localhost:${SERVER_PORT}\033[0m"
+  echo -e "\033[1;38;5;141mOpenCode ── \033[1;38;5;51m[ SWARM EDITION v2.0 ]\033[0m"
+  echo -e "\033[38;5;220m  -> Alias: \033[1;37mopencode-swarm\033[0m \033[2m(Multi-Agent Autonomous Swarm & Live Verification)\033[0m"
+  echo -e "\033[38;5;102m  -> Workspace: \033[38;5;48m${PROJECT_NAME}\033[0m"
+  echo -e "\033[38;5;39m  -> Web Telemetria: \033[1;4;38;5;75mhttp://localhost:${SERVER_PORT}\033[0m"
   echo ""
-  sleep 0.3
+  sleep 0.2
 fi
 
 # Launch OpenCode (all agents, MCPs, and theme loaded from ~/.config/opencode)

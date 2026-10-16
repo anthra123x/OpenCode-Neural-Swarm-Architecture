@@ -84,14 +84,19 @@ def patch_binary(src_path, dst_path):
 
     # --- 2. Patch Prompt Footer Location / Session Web URL ---
     orig_prompt = b',wn=c(()=>{if(!r.sessionID)return W.ref??R.location.default();if(ye()!=="idle")return;return R.session.get(r.sessionID)?.location}),jo=c(()=>{let Ie=Le(),Ze=Ie?{directory:Ie}:wn();if(!Ze)return;let ht=Zl(Ze.directory,T.home),ut=R.location.vcs.info(Ze)?.branch.current;return ut?`${ht}:${ut}`:ht}),[qo,rn]=P(xe().width),dn=c(()=>{let Ie=jo();if(!Ie)return;return g$(Ie,qo())}),Kr='
+    old_cand_prompt = b',wn=c(()=>r.sessionID?ye()=="idle"?R.session.get(r.sessionID)?.location:void 0:W.ref??R.location.default()),jo=c(()=>{let d=Le()||wn()?.directory;if(!d)return;let h=Zl(d,T.home),b=R.location.vcs.info({directory:d})?.branch.current;return(b?h+":"+b:h)+"  "+(process.env.OPENCODE_WEB_URL||"http://localhost:4040")}),[qo,rn]=P(xe().width),dn=c(()=>jo()?g$(jo(),qo()):void 0)    ,Kr='
+    cand_prompt = b',wn=c(()=>r.sessionID?ye()=="idle"?R.session.get(r.sessionID)?.location:void 0:W.ref??R.location.default()),jo=c(()=>{let d=Le()||wn()?.directory;if(!d)return;let h=Zl(d,T.home),b=R.location.vcs.info({directory:d})?.branch.current,u=process.env.OPENCODE_WEB_URL;return(b?h+":"+b:h)+(u?"  [web: "+u+"]":"")}),[qo,rn]=P(xe().width),dn=c(()=>jo()?g$(jo(),qo()):void 0)          ,Kr='
+
     pos_prompt = data.find(orig_prompt)
-    if pos_prompt != -1:
-        orig_prompt_len = len(orig_prompt)
-        cand_prompt = b',wn=c(()=>r.sessionID?ye()=="idle"?R.session.get(r.sessionID)?.location:void 0:W.ref??R.location.default()),jo=c(()=>{let d=Le()||wn()?.directory;if(!d)return;let h=Zl(d,T.home),b=R.location.vcs.info({directory:d})?.branch.current;return(b?h+":"+b:h)+"  "+(process.env.OPENCODE_WEB_URL||"http://localhost:4040")}),[qo,rn]=P(xe().width),dn=c(()=>jo()?g$(jo(),qo()):void 0)    ,Kr='
-        if len(cand_prompt) == orig_prompt_len:
-            data[pos_prompt:pos_prompt + orig_prompt_len] = cand_prompt
-            print(f"[✓] Patched prompt footer location with active Web Cockpit URL ({orig_prompt_len} bytes)")
-            patched_something = True
+    pos_old = data.find(old_cand_prompt)
+    if pos_prompt != -1 and len(cand_prompt) == len(orig_prompt):
+        data[pos_prompt:pos_prompt + len(orig_prompt)] = cand_prompt
+        print(f"[✓] Patched prompt footer location with clean [web: URL] badge ({len(orig_prompt)} bytes)")
+        patched_something = True
+    elif pos_old != -1 and len(cand_prompt) == len(old_cand_prompt):
+        data[pos_old:pos_old + len(old_cand_prompt)] = cand_prompt
+        print(f"[✓] Upgraded prompt footer location to clean [web: URL] badge ({len(old_cand_prompt)} bytes)")
+        patched_something = True
     else:
         # Check legacy pattern
         orig_legacy = b"""dn=c(()=>{if(!r.sessionID)return _.ref??C.location.default();if(ne()!=="idle")return;return C.session.get(r.sessionID)?.location}),zr=c(()=>{let Ie=Xe(),et=Ie?{directory:Ie}:dn();if(!et)return;let X=Al(et.directory,T.home),de=C.location.vcs.info(et)?.branch.current;return de?`${X}:${de}`:X}),[fn,gn]=w(se().width),_r=c(()=>{let Ie=zr();if(!Ie)return;return wL(Ie,fn())})"""
