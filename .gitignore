@@ -16,3 +16,6 @@ __pycache__/
 
 # Test suite directory
 tests/
+
+# Rust build artifacts
+target/

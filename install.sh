@@ -251,11 +251,22 @@ if echo "$CHOICES" | grep -q "MCP" && [ -d "$REPO_DIR/mcp" ]; then
     done
   fi
 
+  # If compiled Rust swarm-core binary is available, install it
+  if [ -f "$REPO_DIR/swarm-core/target/release/swarm-core" ]; then
+    cp "$REPO_DIR/swarm-core/target/release/swarm-core" "$LOCAL_BIN/swarm-core"
+    chmod +x "$LOCAL_BIN/swarm-core"
+    log "Native Rust swarm-core binary installed to $LOCAL_BIN/swarm-core"
+  fi
+
   # Create executable wrappers in ~/.local/bin
   for srv in brain-graph swarm-engine context-memory team-collab swarm-sentinel swarm-tester; do
     cat > "$LOCAL_BIN/opencode-$srv" <<EOF
 #!/usr/bin/env bash
-if [ -f "$CONFIG_DIR/mcp/$srv/server.py" ]; then
+if [ "$srv" = "brain-graph" ] && command -v swarm-core &>/dev/null; then
+  exec swarm-core mcp brain "\$@"
+elif [ "$srv" = "swarm-engine" ] && command -v swarm-core &>/dev/null; then
+  exec swarm-core mcp engine "\$@"
+elif [ -f "$CONFIG_DIR/mcp/$srv/server.py" ]; then
   exec python3 "$CONFIG_DIR/mcp/$srv/server.py" "\$@"
 elif [ -f "$CONFIG_DIR/swarm/mcp/$srv/server.py" ]; then
   exec python3 "$CONFIG_DIR/swarm/mcp/$srv/server.py" "\$@"
