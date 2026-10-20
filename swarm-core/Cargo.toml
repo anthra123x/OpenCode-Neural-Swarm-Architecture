@@ -2,6 +2,9 @@
 name = "swarm-core"
 version = "2.0.0"
 edition = "2024"
+authors = ["anthra123x"]
+license = "MIT"
+description = "High-performance native Rust core engine for OpenCode Swarm v2"
 
 [dependencies]
 clap = { version = "4.5", features = ["derive"] }
