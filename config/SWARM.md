@@ -58,7 +58,7 @@ Devuelve un snapshot compacto del estado del proyecto: nodos recientes por tipo,
   ```
 - **Traversal multi-hop**: Explorar dependencias y vecinos:
   ```python
-  traverse(start_node="auth-module", depth=2, relation="DEPENDS_ON")
+  traverse(start_node="auth-module", depth=2, relation_filter="DEPENDS_ON")
   ```
 - **Búsqueda híbrida (FTS5 + Vecinos)**:
   ```python

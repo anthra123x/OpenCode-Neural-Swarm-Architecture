@@ -1,177 +1,163 @@
-# Multi-Agent Coordination & Knowledge Architecture
+# Multi-Agent Coordination & Knowledge Architecture (Swarm v2)
 
-Este documento define los protocolos operacionales para los agentes de OpenCode, la memoria persistente de contexto y el bus de colaboración del equipo.
+Este documento define los protocolos operacionales para los agentes de OpenCode, la memoria en grafo de conocimiento (`brain-graph`) y el motor unificado de ejecución y calidad (`swarm-engine`).
 
 ---
 
-## 1. Team Swarm Bus Protocol (`team-collab`)
+## 1. Protocolo del Motor Operacional (`swarm-engine`)
 
-Todos los agentes especializados (`@orchestrator`, `@backend`, `@frontend`, `@git-flow`, `@qa-auditor`, `@devops`) forman un equipo cohesionado y sincronizado a través de este MCP.
+Todos los agentes especializados (`@orchestrator`, `@backend`, `@frontend`, `@git-flow`, `@qa-auditor`, `@devops`) operan de forma sincronizada y coordinada a través del servidor MCP `swarm-engine`.
 
-### Reglas de Sincronización y Coordinación Multi-Ventana:
+### Reglas de Sincronización y Coordinación de Tareas:
 1. **Conmutación Interactiva con `TAB`**:
-   - Los 5 roles esenciales (`@orchestrator`, `@backend`, `@frontend`, `@git-flow`, `@qa-auditor`) operan como agentes primarios. El usuario puede alternar entre ellos en cualquier momento pulsando `TAB` en el prompt interactivo.
+   - Los roles esenciales (`@orchestrator`, `@backend`, `@frontend`, `@git-flow`, `@qa-auditor`) operan como agentes configurados en OpenCode. El usuario o el flujo pueden alternar entre ellos mediante `TAB` en el prompt o invocando subagentes.
 
-2. **Consciencia Multi-Ventana en Tiempo Real**:
-   - En flujos de trabajo con múltiples terminales simultáneas (ej: Ventana 1 = Backend, Ventana 2 = Frontend, Ventana 3 = Git-Flow):
-   - Al iniciar cualquier tarea, el agente consulta `team_get_live_activity()` para saber quién está activo en otras ventanas y en qué archivo/tarea trabaja.
-   - Envía su estado o pulso de presencia:
+2. **Tablero de Tareas y Estado del Enjambre**:
+   - El `@orchestrator` descompone las metas en hitos atómicos y los publica:
      ```python
-     team_set_status(agent_name="backend", status="working", current_task="Building user auth endpoints", window_id="win-backend")
+     swarm_post_task(title="Implementar autenticación JWT", description="Crear endpoints de auth, rotación de refresh tokens y esquema de base de datos", assigned_to="@backend", priority="high")
      ```
-     o emite pulsos de vida con `team_heartbeat(agent_name="backend", window_id="win-backend")`.
-
-3. **Handoffs, Contratos y Disparadores Reactivos (Backend -> Frontend)**:
-   - Cuando `@backend` termine un modelo de datos o endpoints, publica el contrato:
+   - Cada especialista consulta sus tareas asignadas:
      ```python
-     team_share_artifact(creator="backend", artifact_key="auth-api-v1", title="Auth Endpoints Contract", artifact_type="api_spec", content="...")
+     swarm_list_tasks(status="todo", assigned_to="@backend")
      ```
-   - `team-collab` genera de inmediato un disparador reactivo en `team_triggers` y marca a `@frontend` como activo.
-   - `@frontend` consume sus disparadores pendientes con:
+   - Al comenzar y al completar el trabajo, actualiza el estado (`todo`, `in_progress`, `done`, `blocked`):
      ```python
-     team_check_triggers(agent_name="frontend")
-     ```
-   - O bien, un agente puede despachar explícitamente a otro:
-     ```python
-     team_trigger_agent(from_agent="backend", to_agent="frontend", trigger_type="api_spec", artifact_key="auth-api-v1", summary="Implementar vistas y formulario de login")
+     swarm_update_task(task_id=1, status="in_progress", notes="Escribiendo tests TDD para endpoints de auth")
      ```
 
-4. **Anuncios y Bloqueos**:
-   - Si un agente se encuentra bloqueado o requiere intervención de otro dominio, publica un mensaje con categoría `warning` o `question`:
+3. **Handoffs Formales y Artefactos Compartidos (Backend -> Frontend / QA)**:
+   - Al terminar un modelo, endpoint o componente, el agente publica el artefacto formal:
      ```python
-     team_broadcast(sender="frontend", message="Blocked: Need updated JWT schema in auth-api-v1", category="warning", priority="high")
+     swarm_share_artifact(artifact_key="auth-api-v1", title="Auth Endpoints Contract", artifact_type="api_spec", content="POST /api/auth/login {email, password} -> {token, refreshToken}")
+     ```
+   - El siguiente agente (`@frontend`, `@qa-auditor`) recupera el contrato sin necesidad de consultar al usuario:
+     ```python
+     swarm_get_artifact(artifact_key="auth-api-v1")
      ```
 
-5. **Tablero de Tareas**:
-   - El `@orchestrator` publica las metas con `team_post_task()`.
-   - Los especialistas reclaman sus tareas con `team_claim_task()` y las marcan completadas con `team_update_task()`.
-   - Al completar la tarea, el agente pasa automáticamente a `idle` y se registra un checkpoint de memoria silencioso en `context-memory`.
+4. **Compuerta de Calidad Unificada (`swarm_gate_check`)**:
+   - Antes de dar por concluido un hito de tarea, se verifica la compuerta de calidad:
+     ```python
+     swarm_gate_check(task_id=1)
+     ```
+   - Valida que la tarea esté completada, que los tests hayan pasado y que no existan violaciones abiertas de Sentinel.
 
 ---
 
-## 2. Persistent Context Memory Protocol (`context-memory`)
+## 2. Protocolo del Cerebro Neural (`brain-graph`)
 
-La memoria persistente permite conservar contexto, reglas de negocio, preferencias del usuario y decisiones arquitectónicas a través de diferentes sesiones y proyectos, eliminando la necesidad de compactación destructiva de contexto en OpenCode (`compaction.auto = false`).
+`brain-graph` proporciona una memoria en grafo de conocimiento relacional estilo Obsidian sobre SQLite WAL con búsqueda híbrida (FTS5 + expansión de sinapsis) y decaimiento exponencial de confianza (`confidence decay`).
 
-### Puntos de Control y Cero Compactación:
-1. **Checkpointing de Sesión (`checkpoint_session`)**:
-   - Cada agente especializado debe registrar un checkpoint ante hitos mayores o antes de ceder el turno:
-     ```python
-     checkpoint_session(project=..., summary="...", decisions="...", active_task="...", next_steps="...", files_modified="...")
-     ```
-   - Este checkpoint se guarda en SQLite indexado y se refleja inmediatamente como un nodo `memory` destacado en el grafo visual GetBrain.
-2. **Hidratación al Reanudar (`get_session_checkpoint`)**:
-   - Para no saturar el historial de chat con cientos de mensajes previos, ejecuta:
-     ```python
-     get_session_checkpoint(project=...)
-     ```
-   - Recupera el estado exacto del proyecto, archivos modificados y próximos pasos con 100% de fidelidad.
+### A. Hidratación al Iniciar Turno:
+Al iniciar cualquier tarea o sesión, `@orchestrator` y los especialistas cargan el contexto consolidado del proyecto:
+```python
+get_brain_context(project="mi-proyecto")
+```
+Devuelve un snapshot con los nodos activos, observaciones recientes y el último checkpoint.
 
-### Seguimiento Autónomo de Contexto (Zero Manual Checkpoints):
-1. **Rastreo Automático por Turno (`auto_track_turn`)**:
-   - `context-memory` opera de forma continua en segundo plano.
-   - Cada agente y orquestador invoca `auto_track_turn(project=..., turn_summary=..., decisions=..., files_touched=[...])` al finalizar pasos relevantes.
-   - El usuario nunca necesita recordar hacer un "punto de guardado" manual: el sistema indexa y persiste el contexto automáticamente.
-2. **Verificación de Integridad de Contexto (`verify_context_integrity`)**:
-   - Valida que SQLite WAL, GetBrain y los tableros de tareas permanezcan sincronizados sin desincronizaciones entre ventanas.
-
-### Prioridad de Consulta Habitual:
-1. Al comenzar una sesión o recibir una instrucción compleja:
+### B. Ciclo de Vida del Conocimiento:
+1. **Creación de Entidades**:
    ```python
-   get_active_context(project="global")
+   create_entity(id="jwt-strategy", title="JWT Strategy with HttpOnly Cookies", node_type="decision", content="Rotación estricta de refresh token cada 7 días", tags="auth,security")
    ```
-2. Para resolver dudas técnicas sobre convenciones pasadas o cómo se implementó un módulo:
+2. **Sinapsis Tipadas**:
    ```python
-   recall(query="jwt secret rotation", category="architecture")
+   relate(source="auth-controller", target="jwt-strategy", relation="USES", reason="Implementa flujo JWT")
+   relate(source="auth-controller", target="sec-001", relation="GOVERNED_BY", reason="Cumple regla de cero secretos")
+   ```
+   *Vocabulario de relaciones*: `USES`, `DEPENDS_ON`, `TESTED_BY`, `GOVERNED_BY`, `EXPOSES`, `IMPLEMENTS`, `CONTRADICTS`, `SUPERSEDES`, `LEARNED_FROM`, `PART_OF`, `EXTENDS`, `REQUIRES`.
+3. **Observaciones Incrementales** (sin reescribir el nodo):
+   ```python
+   observe(node_id="auth-controller", observation="Endpoints protegidos con middleware de rate limiting", observer="@backend")
+   ```
+4. **Traversal Multi-Hop**:
+   ```python
+   traverse(start_node="auth-controller", depth=2, relation_filter="USES")
+   ```
+5. **Búsqueda Híbrida**:
+   ```python
+   recall_graph(query="jwt secret rotation", expand_neighbors=True)
+   ```
+6. **Aprendizajes del Enjambre**:
+   ```python
+   record_learning(lesson="Bcrypt rounds >= 12 previene ataques de fuerza bruta", trigger_node="auth-controller")
+   ```
+7. **Puntos de Control de Sesión**:
+   ```python
+   checkpoint_brain(summary="Autenticación JWT implementada con 100% tests pasando", active_task="Comenzar vistas frontend", files_touched=["src/auth.ts", "tests/auth.test.ts"])
    ```
 
-### Cuándo Registrar en Memoria (`remember` y `record_project_learning`):
-- **Decisiones Arquitectónicas**: Decisiones clave sobre bibliotecas, frameworks, patrones (ej: "usar Zustand para estado global", "PostgreSQL con UUIDv7").
-- **Preferencias del Usuario**: Estilos de codificación, stack preferido, diseño oscuro, convenciones de nombres.
-- **Aprendizajes y Retroalimentación Continua (`record_project_learning`)**:
-  - Causa raíz de un fallo sutil, un gotcha de testing o una incompatibilidad, y cómo resolverlo.
-  - Al alimentar este bucle, todos los subagentes consultan automáticamente las lecciones vía `get_session_bootstrap()` y `get_project_learnings()`, previniendo errores recurrentes y refinando su desempeño con el proyecto.
-
 ---
 
-## 3. Codebase Knowledge Graph (`codebase-memory-mcp`)
+## 3. Guardián de Reglas de Desarrollo (`swarm-engine` · Sentinel)
 
-*Nota: Requiere que `codebase-memory-mcp` esté instalado y habilitado. Si retorna "tool not found", recurre inmediatamente a grep/glob o a las herramientas nativas.*
+Sentinel audita en tiempo real que los entregables cumplan las 7 Reglas Inmutables de Ingeniería:
 
-Herramientas disponibles si el servidor está activo:
-- `search_graph`: Búsqueda de símbolos por patrón (funciones, clases, rutas).
-- `trace_path`: Análisis de llamadas entrantes y salientes.
-- `get_code_snippet`: Extracción del cuerpo de una función o clase.
-- `query_graph`: Consultas Cypher para relaciones complejas.
-
----
-
-## 4. Swarm Sentinel Protocol (`swarm-sentinel`) — Guardián de Reglas de Desarrollo
-
-El servidor MCP `swarm-sentinel` actúa como supervisor estricto y auditor de calidad continuo en todo el enjambre. Ningún agente puede dar por completada una tarea sin cumplir las reglas de ingeniería.
-
-### Reglas Inmutables de Desarrollo:
-- **`TDD-001`**: Cobertura obligatoria $\ge 80\%$ y pruebas unitarias/integración previas a la implementación.
-- **`VERIF-001`**: Ciclo de verificación en 6 etapas (sintaxis, unit tests, integración, types, linter, seguridad).
-- **`GIT-001`**: Commits bajo estándar estricto Conventional Commits 1.0 (`feat:`, `fix:`, `refactor:`, etc.).
+### Las 7 Reglas Inmutables:
+- **`TDD-001`**: Pruebas automatizadas obligatorias con cobertura $\ge 80\%$.
+- **`VERIF-001`**: Bucle de verificación en 6 etapas (Build, Types, Lint, Tests, Security OWASP, Regresiones).
+- **`GIT-001`**: Commits bajo estándar Conventional Commits 1.0 (`feat:`, `fix:`, `refactor:`, etc.) y árbol limpio.
 - **`UI-001`**: Motion táctil, diseño curado, micro-animaciones, cero placeholders y estética anti-slop.
-- **`SEC-001`**: Cero secretos, tokens o credenciales hardcodeadas; uso estricto de variables de entorno.
-- **`ARCH-001`**: Principio de Responsabilidad Única (SRP), desacoplamiento y manejo explícito de excepciones.
-- **`HANDOFF-001`**: Protocolo formal de contratos de interfaz entre `@backend` y `@frontend`.
+- **`SEC-001`**: Cero secretos hardcodeados; uso estricto de variables de entorno y saneamiento en frontera.
+- **`ARCH-001`**: Principio de Responsabilidad Única (SRP), archivos modulares $<800$ líneas y errores tipados.
+- **`HANDOFF-001`**: Contratos formales compartidos (`swarm_share_artifact`) antes del traspaso entre agentes.
 
-### Flujo de Auditoría Obligatoria:
-1. **Antes de cerrar tarea**:
-   El orquestador o especialista somete el entregable a:
+### Auditoría y Cumplimiento:
+1. **Auditar Entregable**:
    ```python
    sentinel_audit_task(
-     task_id=1,
-     agent_name="backend",
-     deliverables=["src/api/auth.py", "tests/test_auth.py"],
-     test_command="pytest tests/test_auth.py",
-     coverage_percent=92.5,
-     commit_message="feat(auth): add JWT rotation with refresh tokens",
-     security_checks_passed=True,
-     architectural_notes="SRP applied, env vars used for JWT secret"
+     agent_name="@backend",
+     task_title="Implementar autenticación JWT",
+     deliverables="src/auth.py, tests/test_auth.py",
+     files_modified="src/auth.py, tests/test_auth.py",
+     test_results="12 passed, 0 failed, 94% coverage"
    )
    ```
-2. **Rechazo y Alerta Automática**:
-   Si una regla es violada (ej: cobertura < 80% o mensaje de commit inválido), Sentinel **rechaza** el entregable, registra la infracción y emite automáticamente un aviso en `team-collab` para que el agente rectifique.
-3. **Mantenimiento del Bucle de Iteración y Continuidad**:
-   El orquestador no se detiene si un subagente sigue trabajando: usa `team_wait_for_task(task_id, timeout_seconds=3)` para sondear el estado sin bloquear el hilo, asegurando ejecución continua sin pedir cambios manuales de TAB.
+2. **Consultar Reglas y Checklists**:
+   ```python
+   sentinel_get_rules(category="security")
+   ```
+3. **Verificar Cumplimiento**:
+   ```python
+   sentinel_verify_compliance(agent_name="@backend")
+   ```
 
 ---
 
-## 6. Blindaje Operacional Anti-Autosabotaje y Aprendizaje Continuo
-- **Inspección Previa Obligatoria**: Jamás crear archivos duplicados ni componentes paralelos.
-- **Validación Gateada**: Ningún agente cierra un entregable sin pruebas verdes (Build, Types, Lint, TDD >=80%, OWASP).
-- **Retroalimentación Persistente**: Cada lección u optimización descubierta se ancla con `record_project_learning` para nutrir las siguientes sesiones.
+## 4. Verificación en Tiempo Real (`swarm-engine` · Tester)
+
+Tester ejecuta suites de prueba, sondea endpoints y verifica componentes para evitar regresiones o alucinaciones:
+
+1. **Ejecución de Suites de Pruebas**:
+   ```python
+   tester_run_suite(runner="pytest", coverage=True)
+   ```
+2. **Sondeo en Vivo de Endpoints (HTTP Probe)**:
+   ```python
+   tester_probe_endpoint(url="http://localhost:3000/api/health", expected_status=200)
+   ```
+3. **Verificación Estática de Componentes / Sintaxis**:
+   ```python
+   tester_verify_component(file_path="src/index.ts")
+   ```
+4. **Scorecard de Salud Global en Vivo**:
+   ```python
+   tester_get_live_health()
+   ```
+5. **Comprobación Ultrarrápida de Archivos**:
+   ```python
+   tester_quick_check(file_path="src/auth.ts")
+   ```
+6. **Sincronización Tester ↔ Sentinel**:
+   ```python
+   tester_sync_with_sentinel()
+   ```
 
 ---
 
-## 5. Swarm Live Tester Protocol (`swarm-tester`) — Verificación en Tiempo Real y Blindaje Anti-Regresiones
+## 5. Blindaje Operacional Anti-Autosabotaje
 
-El servidor MCP `swarm-tester` y su plugin interactivo operan en tiempo real para verificar continuamente cada componente, endpoint, página y cambio de código introducido por los agentes, evitando regresiones, código roto o alucinaciones. Trabaja de la mano con `swarm-sentinel`.
-
-### Capacidades y Herramientas del Live Tester:
-1. **Ejecución Automatizada de Suites (`tester_run_suite`)**:
-   - Detección automática del test runner del proyecto (`pytest`, `vitest`, `jest`, `unittest`, `cargo test`, `go test`).
-   - Parseo instantáneo de aserciones (`passed`, `failed`, `total`) y porcentaje de cobertura (`coverage_percent`).
-   - Sincronización automática con `swarm-sentinel` (`auto_sync_sentinel=True`).
-2. **Sondeo en Vivo de Endpoints (`tester_probe_endpoint`)**:
-   - Envía peticiones HTTP reales a servidores de desarrollo locales (ej: APIs REST, microservicios, SPAs).
-   - Valida códigos de respuesta esperados (200, 201), tiempo de latencia en milisegundos y patrones de texto en el body.
-3. **Verificación Estática de Componentes UI y Código (`tester_verify_component`)**:
-   - Comprueba sintaxis AST estricta (Python, TypeScript/JavaScript, CSS, HTML).
-   - Valida balanceo de llaves, corchetes y etiquetas.
-   - Detecta anti-patrones "slop" (como `TODO`, `FIXME`, placeholders o transiciones CSS genéricas).
-   - Localiza y ejecuta suites de pruebas unitarias co-localizadas (ej: `server.py` -> `test_server.py`).
-4. **Scorecard de Salud Global en Vivo (`tester_get_live_health`)**:
-   - Muestra estado consolidado: `HEALTHY`, `DEGRADED`, o `FAILING`.
-   - Consultable en la terminal mediante `ecc test --watch` o mediante la herramienta `tester_get_live_health()`.
-5. **Comprobación Ultrarrápida de Modificaciones Git (`tester_quick_check`)**:
-   - Inspecciona archivos modificados en el árbol git y los verifica en milisegundos.
-6. **Puente Directo Tester ↔ Sentinel (`tester_sync_with_sentinel`)**:
-   - Si las pruebas pasan y la cobertura es $\ge 80\%$, certifica la tarea en Sentinel.
-   - Si una prueba falla o hay error de sintaxis, registra inmediatamente una infracción bajo `TDD-001` o `VERIF-001` y emite una alerta prioritaria en `team-collab`.
-
-
+- **Inspección Previa Obligatoria**: Antes de escribir o sugerir código nuevo, inspecciona el árbol de archivos. Jamás crees duplicados ni componentes paralelos.
+- **Validación Gateada**: Ningún agente cierra un entregable sin pruebas pasando (`tester_run_suite`) y verificación de Sentinel (`sentinel_audit_task` o `swarm_gate_check`).
+- **Persistencia Silenciosa**: Al completar hitos clave, ancla el aprendizaje con `record_learning` y emite un checkpoint con `checkpoint_brain`.

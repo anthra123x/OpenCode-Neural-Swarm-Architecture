@@ -180,6 +180,15 @@ cmd_doctor() {
     fi
   done
 
+  # Native Rust Swarm Engine
+  if command -v swarm-core &>/dev/null; then
+    log "Native Engine [swarm-core]: $(command -v swarm-core)"
+  elif [ -x "$HOME/.local/bin/swarm-core" ]; then
+    log "Native Engine [swarm-core]: $HOME/.local/bin/swarm-core"
+  else
+    info "Native Engine [swarm-core]: Not detected (using Python 3 fallback)"
+  fi
+
   # Skills
   if [ -d "$ECC_SKILLS" ]; then
     local scount; scount=$(find "$ECC_SKILLS" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l)

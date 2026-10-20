@@ -8,7 +8,7 @@ Metodología de ingeniería para sesiones de **OpenCode**. Orquesta un enjambre 
 
 Para que el usuario perciba de inmediato que la configuración de OpenCode Swarm está activa, el agente que responda en el **primer turno de cada sesión** o al invocar `/team`:
 
-1. Llama a `get_session_bootstrap()` (o `team_get_status()`) para detectar el proyecto y rama actual.
+1. Llama a `get_brain_context()` (o `get_session_bootstrap()`) para detectar el proyecto y estado actual.
 2. Renderiza en el encabezado de su respuesta el banner visual de estado y el tip del servidor de monitoreo:
 
 ```markdown
@@ -54,26 +54,26 @@ $$\text{[orchestrator]} \xrightarrow{\text{TAB}} \text{[backend]} \xrightarrow{\
 
 El sistema garantiza que los sub-agentes no pierdan el hilo del trabajo aunque el usuario cierre OpenCode y vuelva horas o días después:
 
-### A. Persistencia por Proyecto en el Tablero de Tareas (`team-collab`)
-- Cada proyecto tiene su propio espacio de nombres en la base de datos de SQLite.
-- Las tareas (`team_post_task`, `team_claim_task`, `team_update_task`) y los mensajes de equipo quedan guardados en disco (`~/.opencode/team/team_collab.db`).
+### A. Persistencia por Proyecto en el Tablero de Tareas (`swarm-engine`)
+- Cada proyecto tiene su propio espacio de nombres en la base de datos de SQLite (`~/.opencode/swarm/swarm.db`).
+- Las tareas (`swarm_post_task`, `swarm_list_tasks`, `swarm_update_task`) y artefactos quedan guardados en disco.
 - Cuando un agente completa un trabajo en la Sesión 1, guarda el contrato (por ejemplo la especificación de la API) mediante:
   ```python
-  team_share_artifact(creator="backend", artifact_key="auth-endpoints", title="Auth API Spec", artifact_type="api_spec", content="...")
+  swarm_share_artifact(artifact_key="auth-endpoints", title="Auth API Spec", artifact_type="api_spec", content="...")
   ```
 
 ### B. Reanudación en la Sesión 2
 - Al abrir OpenCode en la misma carpeta:
-  - `@orchestrator` lee las tareas existentes con `get_session_bootstrap()`.
+  - `@orchestrator` lee las tareas existentes con `swarm_list_tasks(status="todo")` y el estado general con `get_brain_context()`.
   - El usuario puede delegar directamente escribiendo `@frontend continúa con la tarea #2 usando el contrato de auth`.
-  - `@frontend` no necesita que el usuario le repita los endpoints: los recupera directamente con `team_get_artifact(artifact_key="auth-endpoints")`.
+  - `@frontend` no necesita que el usuario le repita los endpoints: los recupera directamente con `swarm_get_artifact(artifact_key="auth-endpoints")`.
 
-### C. Protocolo de Handoff (Pase de Guardia)
+### C. Protocolo de Handoff y Compuerta de Calidad
 - Para transferir la posta entre agentes:
-  ```python
-  team_handoff(from_agent="backend", to_agent="frontend", task_id=2, notes="Endpoints y migraciones listos. Proceder con formulario de login.", artifact_key="auth-endpoints")
-  ```
-- Esto actualiza automáticamente el estado de `@backend` a `idle`, pone a `@frontend` en estado `working` y emite una notificación en el bus.
+  1. El agente saliente comparte el artefacto con `swarm_share_artifact()`.
+  2. Actualiza la tarea a completada con `swarm_update_task(task_id=2, status="done", notes="Endpoints y migraciones listos.")`.
+  3. Ejecuta la compuerta de calidad unificada: `swarm_gate_check(task_id=2)`.
+  4. Registra un hito en el cerebro neural con `checkpoint_brain()`.
 
 ---
 
@@ -126,7 +126,7 @@ Para evitar que el flujo de trabajo se detenga prematuramente cuando el orquesta
 1. **Invocación Síncrona Directa**:
    El orquestador invoca a los subagentes mediante `subagent(agent=..., prompt=..., description=...)` de manera síncrona (`background: false` o por defecto). OpenCode ejecuta al especialista hasta su conclusión y devuelve `<subagent sessionID="..." state="completed">...resultado...</subagent>` directamente en el mismo turno.
 2. **Revisión Inmediata de Progreso**:
-   El orquestador evalúa los entregables, actualiza el estado de la tarea en `team_update_task`, y en lugar de terminar el turno o decir "esperando confirmación", procede de inmediato a invocar a la siguiente neurona en la secuencia (`@backend` -> `@frontend` -> `@qa-auditor` -> `@git-flow`).
+   El orquestador evalúa los entregables, actualiza el estado de la tarea en `swarm_update_task`, y en lugar de terminar el turno o decir "esperando confirmación", procede de inmediato a invocar a la siguiente neurona en la secuencia (`@backend` -> `@frontend` -> `@qa-auditor` -> `@git-flow`).
 3. **Flujo de Ejecución Continuo**:
    La iteración no se rompe hasta que el objetivo completo del usuario ha sido verificado y certificado.
 

@@ -251,21 +251,42 @@ if echo "$CHOICES" | grep -q "MCP" && [ -d "$REPO_DIR/mcp" ]; then
     done
   fi
 
-  # If compiled Rust swarm-core binary is available, install it
+  # If compiled Rust swarm-core binary is available or cargo is present, install/build it
   if [ -f "$REPO_DIR/swarm-core/target/release/swarm-core" ]; then
-    cp "$REPO_DIR/swarm-core/target/release/swarm-core" "$LOCAL_BIN/swarm-core"
-    chmod +x "$LOCAL_BIN/swarm-core"
+    cp "$REPO_DIR/swarm-core/target/release/swarm-core" "$LOCAL_BIN/swarm-core.tmp"
+    chmod +x "$LOCAL_BIN/swarm-core.tmp"
+    mv -f "$LOCAL_BIN/swarm-core.tmp" "$LOCAL_BIN/swarm-core"
     log "Native Rust swarm-core binary installed to $LOCAL_BIN/swarm-core"
+  elif command -v cargo &>/dev/null && [ -d "$REPO_DIR/swarm-core" ]; then
+    do_step "Compiling native Rust swarm-core engine..."
+    if (cd "$REPO_DIR/swarm-core" && cargo build --release -q); then
+      cp "$REPO_DIR/swarm-core/target/release/swarm-core" "$LOCAL_BIN/swarm-core.tmp"
+      chmod +x "$LOCAL_BIN/swarm-core.tmp"
+      mv -f "$LOCAL_BIN/swarm-core.tmp" "$LOCAL_BIN/swarm-core"
+      log "Native Rust swarm-core compiled and installed to $LOCAL_BIN/swarm-core"
+    else
+      warn "Rust compilation failed; falling back automatically to Python MCP servers"
+    fi
+  else
+    log "Rust toolchain (cargo) not found — using Python 3 MCP runtime (100% portable)"
   fi
 
-  # Create executable wrappers in ~/.local/bin
+  # Create executable wrappers in ~/.local/bin (with automatic Rust/Python fallback)
   for srv in brain-graph swarm-engine context-memory team-collab swarm-sentinel swarm-tester; do
     cat > "$LOCAL_BIN/opencode-$srv" <<EOF
 #!/usr/bin/env bash
-if [ "$srv" = "brain-graph" ] && command -v swarm-core &>/dev/null; then
-  exec swarm-core mcp brain "\$@"
-elif [ "$srv" = "swarm-engine" ] && command -v swarm-core &>/dev/null; then
-  exec swarm-core mcp engine "\$@"
+export PATH="\$HOME/.local/bin:\$PATH"
+SWARM_BIN=""
+if command -v swarm-core &>/dev/null; then
+  SWARM_BIN="swarm-core"
+elif [ -x "\$HOME/.local/bin/swarm-core" ]; then
+  SWARM_BIN="\$HOME/.local/bin/swarm-core"
+fi
+
+if [ "$srv" = "brain-graph" ] && [ -n "\$SWARM_BIN" ]; then
+  exec "\$SWARM_BIN" mcp brain "\$@"
+elif [ "$srv" = "swarm-engine" ] && [ -n "\$SWARM_BIN" ]; then
+  exec "\$SWARM_BIN" mcp engine "\$@"
 elif [ -f "$CONFIG_DIR/mcp/$srv/server.py" ]; then
   exec python3 "$CONFIG_DIR/mcp/$srv/server.py" "\$@"
 elif [ -f "$CONFIG_DIR/swarm/mcp/$srv/server.py" ]; then
