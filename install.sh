@@ -6,6 +6,15 @@ source "$REPO_DIR/lib/ui.sh"
 source "$REPO_DIR/lib/paths.sh"
 source "$REPO_DIR/lib/utils.sh"
 
+QUICKSTART=false
+for arg in "$@"; do
+  case "$arg" in
+    -y|--yes|--quickstart|-q|--non-interactive)
+      QUICKSTART=true
+      ;;
+  esac
+done
+
 setup_ui
 setup_paths
 setup_utils
@@ -13,7 +22,8 @@ setup_utils
 # ──────────────── STEP: Welcome ────────────────
 
 print_banner
-msgbox "Welcome" \
+if [[ "$QUICKSTART" != "true" ]]; then
+  msgbox "Welcome" \
 "Welcome to the OpenCode Neural Swarm v2 Configuration Manager!
 
 This installer will set up:
@@ -31,6 +41,7 @@ Two modes available:
   - Manual: full control over every option
 
 Total install size: ~1MB  |  Time: 30-60 seconds"
+fi
 
 # ──────────────── STEP: Prerequisites ────────────────
 
@@ -97,7 +108,10 @@ fi
 # ──────────────── STEP: Select mode ────────────────
 
 MODE=""
-if yesno "Installation Mode" \
+if [[ "$QUICKSTART" == "true" ]]; then
+  MODE="quickstart"
+  infobox "Mode" "Quickstart mode enabled (auto-installing full Swarm suite)"
+elif yesno "Installation Mode" \
 "Do you want Quickstart mode?
 
   [Yes] = Quickstart — install full Swarm suite (agents, MCPs, skills, TUI)
@@ -111,8 +125,13 @@ fi
 
 # ──────────────── STEP: Configuration ────────────────
 
-USER_NAME=$(inputbox "User" "Enter your name or alias (for config headers):" "${USER:-user}")
-GITHUB_HANDLE=$(inputbox "GitHub" "Enter your GitHub username (optional):" "")
+if [[ "$QUICKSTART" == "true" ]]; then
+  USER_NAME="${USER:-user}"
+  GITHUB_HANDLE=""
+else
+  USER_NAME=$(inputbox "User" "Enter your name or alias (for config headers):" "${USER:-user}")
+  GITHUB_HANDLE=$(inputbox "GitHub" "Enter your GitHub username (optional):" "")
+fi
 
 if [[ "$MODE" == "manual" ]]; then
   CHOICES=$(
@@ -343,6 +362,11 @@ if ! in_path "$LOCAL_BIN"; then
   warn "$LOCAL_BIN not in PATH"
 fi
 
+EXTRA_HANDLE=""
+if [ -n "$GITHUB_HANDLE" ]; then
+  EXTRA_HANDLE=" ($GITHUB_HANDLE)"
+fi
+
 SUMMARY="Installation complete!
 
   Config:  $CONFIG_DIR
@@ -351,8 +375,8 @@ SUMMARY="Installation complete!
   TUI:     tokyonight theme enabled
   Skills:  $SKILLS_DIR ($SKILL_COUNT skills)
   CLI:     $LOCAL_BIN/ecc
-  User:    $USER_NAME $([[ -n "$GITHUB_HANDLE" ]] && echo "($GITHUB_HANDLE)")
-$([[ -n "$PATH_WARN" ]] && echo "$PATH_WARN")
+  User:    $USER_NAME$EXTRA_HANDLE
+$PATH_WARN
 
 Next steps:
   • Run 'ecc doctor' to verify all components
@@ -361,7 +385,9 @@ Next steps:
   • Launch opencode to enter the multi-agent swarm"
 
 echo ""
-msgbox "Summary" "$SUMMARY"
+if [[ "$QUICKSTART" != "true" ]]; then
+  msgbox "Summary" "$SUMMARY"
+fi
 
 echo ""
 echo -e "${C_CYAN}${C_BOLD}══════════════════════════════════════════════════════════${C_NC}"

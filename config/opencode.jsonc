@@ -14,12 +14,12 @@
   "mcp": {
     "brain-graph": {
       "type": "local",
-      "command": ["python3", "~/.opencode/mcp/brain-graph/server.py"],
+      "command": ["opencode-brain-graph"],
       "enabled": true
     },
     "swarm-engine": {
       "type": "local",
-      "command": ["python3", "~/.opencode/mcp/swarm-engine/server.py"],
+      "command": ["opencode-swarm-engine"],
       "enabled": true
     },
     "context-memory": {
