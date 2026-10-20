@@ -21,31 +21,6 @@
       "type": "local",
       "command": ["opencode-swarm-engine"],
       "enabled": true
-    },
-    "context-memory": {
-      "type": "local",
-      "command": ["opencode-context-memory"],
-      "enabled": false
-    },
-    "team-collab": {
-      "type": "local",
-      "command": ["opencode-team-collab"],
-      "enabled": false
-    },
-    "swarm-sentinel": {
-      "type": "local",
-      "command": ["opencode-swarm-sentinel"],
-      "enabled": false
-    },
-    "swarm-tester": {
-      "type": "local",
-      "command": ["opencode-swarm-tester"],
-      "enabled": false
-    },
-    "codebase-memory-mcp": {
-      "type": "local",
-      "command": ["codebase-memory-mcp"],
-      "enabled": false
     }
   },
   "agent": {

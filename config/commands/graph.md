@@ -3,7 +3,8 @@ description: Query, traverse, and inspect the brain knowledge graph. Explore nod
 ---
 
 Execute brain graph operations based on the arguments:
-- No arguments or "context": Call `get_brain_context()` to display the current project's brain state.
+- No arguments or "web" or "view": Display visual graph metrics and provide the direct interactive Obsidian graph link: `http://localhost:4848` (launched via `ecc graph`).
+- "context": Call `get_brain_context()` to display the current project's brain state.
 - "search <query>" or "recall <query>": Call `recall_graph(query=..., expand_neighbors=True)` to search the brain and expand neighbor connections.
 - "traverse <node_id>": Call `traverse(start_node=..., depth=2)` to explore a node's graph neighborhood.
 - "list" or "nodes": Call `list_entities()` to show all nodes in the project.

@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenCode Neural Brain Graph — Obsidian-Style Visualizer</title>
+  <style>
+    :root {
+      --bg: #090a0f;
+      --card-bg: rgba(18, 20, 29, 0.85);
+      --border: rgba(255, 255, 255, 0.08);
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent-purple: #a855f7;
+      --accent-teal: #14b8a6;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-blue: #3b82f6;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "JetBrains Mono", monospace;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg);
+      color: var(--text);
+    }
+
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+
+    #canvas-container:active {
+      cursor: grabbing;
+    }
+
+    /* Top HUD Header */
+    header {
+      position: absolute;
+      top: 16px;
+      left: 20px;
+      right: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+      pointer-events: auto;
+    }
+
+    .brand .icon {
+      font-size: 20px;
+    }
+
+    .brand h1 {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #fff;
+    }
+
+    .brand .subtitle {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      pointer-events: auto;
+    }
+
+    .hud-chip {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .hud-chip strong {
+      color: #fff;
+    }
+
+    .btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    .btn.active {
+      background: rgba(168, 85, 247, 0.2);
+      border-color: var(--accent-purple);
+      color: #e9d5ff;
+    }
+
+    /* Search input */
+    .search-box {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .search-box input {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-size: 12px;
+      outline: none;
+      width: 140px;
+    }
+
+    .search-box input::placeholder {
+      color: #64748b;
+    }
+
+    /* Floating Legend */
+    .legend {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 11px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 10;
+      pointer-events: auto;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-muted);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* Side Detail Drawer */
+    #drawer {
+      position: absolute;
+      top: 0;
+      right: -380px;
+      width: 360px;
+      height: 100%;
+      background: rgba(13, 15, 23, 0.95);
+      backdrop-filter: blur(20px);
+      border-left: 1px solid var(--border);
+      transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 20;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    #drawer.open {
+      right: 0;
+    }
+
+    .drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 12px;
+    }
+
+    .drawer-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .drawer-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .drawer-type {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .drawer-content {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #cbd5e1;
+      background: rgba(255,255,255,0.02);
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.04);
+      white-space: pre-wrap;
+    }
+
+    .drawer-section {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .drawer-section h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+
+    .relation-tag {
+      font-size: 11px;
+      padding: 4px 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      display: flex;
+      justify-content: space-between;
+      color: #cbd5e1;
+    }
+
+    /* Live update pulse */
+    .pulse-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+      70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <span class="icon">🧠</span>
+      <div>
+        <h1>OpenCode Neural Swarm</h1>
+        <div class="subtitle">Obsidian-Style Brain Knowledge Graph (brain.db)</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="hud-chip">
+        <div class="pulse-indicator"></div>
+        <span>Sync: <strong>Live</strong></span>
+      </div>
+      <div class="hud-chip">
+        <span>Nodes: <strong id="node-count">0</strong></span>
+        <span>•</span>
+        <span>Synapses: <strong id="edge-count">0</strong></span>
+      </div>
+      <div class="search-box">
+        <span>🔍</span>
+        <input type="text" id="search-input" placeholder="Search knowledge..." />
+      </div>
+      <button class="btn active" id="btn-agent-focus">
+        <span>🟣</span> My Agent Focus
+      </button>
+      <button class="btn" id="btn-reset-view">
+        <span>↺</span> Center
+      </button>
+    </div>
+  </header>
+
+  <div id="canvas-container">
+    <canvas id="graph-canvas"></canvas>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot" style="background: #a855f7; box-shadow: 0 0 8px #a855f7;"></div>
+      <span>🟣 Active Agent Cluster (My Agent)</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background: #14b8a6;"></div>
+      <span>🟢 Component & Files</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background: #f59e0b;"></div>
+      <span>🟡 Decisions & Learnings</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background: #3b82f6;"></div>
+      <span>🔵 Endpoints & Technology</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background: #64748b;"></div>
+      <span>⚪ Context & Architecture</span>
+    </div>
+  </div>
+
+  <div id="drawer">
+    <div class="drawer-header">
+      <div>
+        <span class="drawer-type" id="detail-type">Decision</span>
+        <h3 class="drawer-title" id="detail-title">Node Title</h3>
+      </div>
+      <button class="drawer-close" id="drawer-close-btn">&times;</button>
+    </div>
+    <div class="drawer-section">
+      <h4>Content</h4>
+      <div class="drawer-content" id="detail-content">Node body...</div>
+    </div>
+    <div class="drawer-section">
+      <h4>Synapses (<span id="detail-relations-count">0</span>)</h4>
+      <div id="detail-relations" style="display:flex; flex-direction:column; gap:6px;"></div>
+    </div>
+  </div>
+
+  <script>
+    // Canvas & Physics Engine
+    const canvas = document.getElementById('graph-canvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-container');
+
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+
+    function resize() {
+      width = window.innerWidth;
+      height = window.innerHeight;
+      canvas.width = width * window.devicePixelRatio;
+      canvas.height = height * window.devicePixelRatio;
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+      ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Graph state
+    let nodes = [];
+    let links = [];
+    let nodeMap = new Map();
+    let isAgentFocusOnly = false;
+    let searchQuery = '';
+
+    // Transform State (Pan & Zoom)
+    let zoom = 0.9;
+    let panX = width / 2;
+    let panY = height / 2;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let draggedNode = null;
+    let hoveredNode = null;
+
+    // Simulation Constants
+    const REPULSION = 140;
+    const SPRING_LENGTH = 75;
+    const SPRING_STRENGTH = 0.045;
+    const DAMPING = 0.88;
+    const CENTER_GRAVITY = 0.02;
+
+    async function loadGraphData() {
+      try {
+        const res = await fetch('/api/graph');
+        const data = await res.json();
+        if (data.nodes && data.nodes.length) {
+          updateGraph(data.nodes, data.links);
+          document.getElementById('node-count').innerText = data.stats.nodes || data.nodes.length;
+          document.getElementById('edge-count').innerText = data.stats.edges || data.links.length;
+        }
+      } catch (err) {
+        console.error('Failed to fetch graph data:', err);
+      }
+    }
+
+    function updateGraph(newNodes, newLinks) {
+      const existingMap = new Map(nodes.map(n => [n.id, n]));
+
+      // Preserve physics state for existing nodes, spawn new ones near center
+      nodes = newNodes.map((n, i) => {
+        const existing = existingMap.get(n.id);
+        if (existing) {
+          return { ...n, x: existing.x, y: existing.y, vx: existing.vx, vy: existing.vy };
+        } else {
+          // Circular organic distribution
+          const angle = (i / newNodes.length) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
+          const radius = n.is_agent ? 100 + Math.random() * 80 : 180 + Math.random() * 220;
+          return {
+            ...n,
+            x: Math.cos(angle) * radius + (n.is_agent ? -160 : 60),
+            y: Math.sin(angle) * radius + (n.is_agent ? 120 : -40),
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2
+          };
+        }
+      });
+
+      nodeMap = new Map(nodes.map(n => [n.id, n]));
+
+      links = newLinks.map(l => ({
+        source: nodeMap.get(l.source),
+        target: nodeMap.get(l.target),
+        relation: l.relation,
+        weight: l.weight
+      })).filter(l => l.source && l.target);
+    }
+
+    function stepPhysics() {
+      // 1. Repulsion between nodes (Barnes-Hut approximation/pairwise)
+      for (let i = 0; i < nodes.length; i++) {
+        const a = nodes[i];
+        for (let j = i + 1; j < nodes.length; j++) {
+          const b = nodes[j];
+          const dx = b.x - a.x;
+          const dy = b.y - a.y;
+          const distSq = dx * dx + dy * dy + 1;
+          const dist = Math.sqrt(distSq);
+          
+          if (dist < 400) {
+            const force = (REPULSION / distSq) * (a.is_agent && b.is_agent ? 0.6 : 1.0);
+            const fx = (dx / dist) * force;
+            const fy = (dy / dist) * force;
+            a.vx -= fx;
+            a.vy -= fy;
+            b.vx += fx;
+            b.vy += fy;
+          }
+        }
+      }
+
+      // 2. Spring force along links
+      for (const link of links) {
+        const dx = link.target.x - link.source.x;
+        const dy = link.target.y - link.source.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const force = (dist - SPRING_LENGTH) * SPRING_STRENGTH;
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        link.source.vx += fx;
+        link.source.vy += fy;
+        link.target.vx -= fx;
+        link.target.vy -= fy;
+      }
+
+      // 3. Center gravity towards organic circular mass
+      for (const node of nodes) {
+        if (node === draggedNode) continue;
+        
+        // Target cluster center: agent cluster pulls to bottom-left, rest to center
+        const targetX = node.is_agent ? -180 : 40;
+        const targetY = node.is_agent ? 140 : -20;
+        
+        node.vx += (targetX - node.x) * CENTER_GRAVITY;
+        node.vy += (targetY - node.y) * CENTER_GRAVITY;
+
+        node.vx *= DAMPING;
+        node.vy *= DAMPING;
+        node.x += node.vx;
+        node.y += node.vy;
+      }
+    }
+
+    function draw() {
+      stepPhysics();
+
+      ctx.save();
+      ctx.clearRect(0, 0, width, height);
+
+      // Apply zoom & pan transform
+      ctx.translate(panX, panY);
+      ctx.scale(zoom, zoom);
+
+      // Find center and radius for the "My agent" cluster highlight circle
+      const agentNodes = nodes.filter(n => n.is_agent);
+      let agentCenterX = 0;
+      let agentCenterY = 0;
+      if (agentNodes.length > 0) {
+        for (const an of agentNodes) {
+          agentCenterX += an.x;
+          agentCenterY += an.y;
+        }
+        agentCenterX /= agentNodes.length;
+        agentCenterY /= agentNodes.length;
+
+        let maxDist = 40;
+        for (const an of agentNodes) {
+          const d = Math.hypot(an.x - agentCenterX, an.y - agentCenterY);
+          if (d > maxDist) maxDist = d;
+        }
+        const clusterRadius = maxDist + 35;
+
+        // Draw "My agent" Red Highlight Circle (Exact match with Image 2)
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(agentCenterX, agentCenterY, clusterRadius, 0, Math.PI * 2);
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 4;
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.4)';
+        ctx.shadowBlur = 16;
+        ctx.stroke();
+
+        // "My agent" Label beside the circle
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 24px -apple-system, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 6;
+        ctx.fillText('My agent', agentCenterX - clusterRadius - 18, agentCenterY);
+        ctx.restore();
+      }
+
+      // 1. Draw Synapses / Edges
+      ctx.lineWidth = 1;
+      for (const link of links) {
+        const isConnectedToHover = hoveredNode && (link.source === hoveredNode || link.target === hoveredNode);
+        
+        ctx.beginPath();
+        ctx.moveTo(link.source.x, link.source.y);
+        ctx.lineTo(link.target.x, link.target.y);
+
+        if (isConnectedToHover) {
+          ctx.strokeStyle = 'rgba(168, 85, 247, 0.9)';
+          ctx.lineWidth = 2.5;
+        } else if (link.source.is_agent && link.target.is_agent) {
+          ctx.strokeStyle = 'rgba(168, 85, 247, 0.35)';
+          ctx.lineWidth = 1.2;
+        } else {
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = 0.8;
+        }
+        ctx.stroke();
+      }
+
+      // 2. Draw Nodes
+      for (const node of nodes) {
+        const isHovered = (node === hoveredNode);
+        const matchesSearch = !searchQuery || node.label.toLowerCase().includes(searchQuery.toLowerCase());
+        const radius = (node.is_agent ? 7.5 : 5.5) + (isHovered ? 3 : 0);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+
+        // Node fill color
+        ctx.fillStyle = node.color;
+        if (node.is_agent) {
+          ctx.shadowColor = 'rgba(168, 85, 247, 0.7)';
+          ctx.shadowBlur = isHovered ? 18 : 10;
+        } else if (isHovered) {
+          ctx.shadowColor = node.color;
+          ctx.shadowBlur = 12;
+        }
+        ctx.fill();
+
+        // Node stroke ring
+        ctx.strokeStyle = isHovered ? '#ffffff' : 'rgba(0,0,0,0.5)';
+        ctx.lineWidth = isHovered ? 2 : 1;
+        ctx.stroke();
+        ctx.restore();
+
+        // Node Labels on hover or search match
+        if (isHovered || (matchesSearch && searchQuery.length > 2)) {
+          ctx.save();
+          ctx.font = '11px -apple-system, sans-serif';
+          ctx.fillStyle = '#ffffff';
+          ctx.textAlign = 'center';
+          ctx.shadowColor = 'rgba(0,0,0,0.9)';
+          ctx.shadowBlur = 4;
+          ctx.fillText(node.label, node.x, node.y - radius - 6);
+          ctx.restore();
+        }
+      }
+
+      ctx.restore();
+
+      requestAnimationFrame(draw);
+    }
+
+    // Interactive Mouse Handlers
+    function getMousePos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
+      const clientY = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+      const x = (clientX - rect.left - panX) / zoom;
+      const y = (clientY - rect.top - panY) / zoom;
+      return { x, y, rawX: clientX, rawY: clientY };
+    }
+
+    function findNodeAt(pos) {
+      for (let i = nodes.length - 1; i >= 0; i--) {
+        const n = nodes[i];
+        const dist = Math.hypot(n.x - pos.x, n.y - pos.y);
+        if (dist <= 14) return n;
+      }
+      return null;
+    }
+
+    container.addEventListener('mousedown', (e) => {
+      const pos = getMousePos(e);
+      const clicked = findNodeAt(pos);
+
+      if (clicked) {
+        draggedNode = clicked;
+      } else {
+        isDragging = true;
+        dragStartX = e.clientX - panX;
+        dragStartY = e.clientY - panY;
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      const pos = getMousePos(e);
+
+      if (draggedNode) {
+        draggedNode.x = pos.x;
+        draggedNode.y = pos.y;
+        draggedNode.vx = 0;
+        draggedNode.vy = 0;
+      } else if (isDragging) {
+        panX = e.clientX - dragStartX;
+        panY = e.clientY - dragStartY;
+      } else {
+        hoveredNode = findNodeAt(pos);
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (draggedNode) {
+        // If not a drag, treat as click to open detail drawer
+        const pos = getMousePos(e);
+        if (hoveredNode) {
+          openNodeDrawer(hoveredNode);
+        }
+      }
+      isDragging = false;
+      draggedNode = null;
+    });
+
+    // Zoom on wheel
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.12 : 0.88;
+      const mouseX = e.clientX;
+      const mouseY = e.clientY;
+
+      panX = mouseX - (mouseX - panX) * zoomFactor;
+      panY = mouseY - (mouseY - panY) * zoomFactor;
+      zoom = Math.max(0.2, Math.min(3.5, zoom * zoomFactor));
+    });
+
+    // Drawer info
+    async function openNodeDrawer(node) {
+      const drawer = document.getElementById('drawer');
+      document.getElementById('detail-title').innerText = node.label;
+      document.getElementById('detail-type').innerText = node.type;
+      document.getElementById('detail-type').style.background = node.color + '33';
+      document.getElementById('detail-type').style.color = node.color;
+      document.getElementById('detail-content').innerText = 'Loading...';
+
+      drawer.classList.add('open');
+
+      try {
+        const res = await fetch(`/api/node/${encodeURIComponent(node.id)}`);
+        const data = await res.json();
+        if (data && data.node) {
+          document.getElementById('detail-content').innerText = data.node.content || 'Sin contenido detallado.';
+          
+          const rels = [...(data.outgoing || []), ...(data.incoming || [])];
+          document.getElementById('detail-relations-count').innerText = rels.length;
+          
+          const relContainer = document.getElementById('detail-relations');
+          relContainer.innerHTML = '';
+          rels.forEach(r => {
+            const el = document.createElement('div');
+            el.className = 'relation-tag';
+            el.innerHTML = `<span><strong>${r.relation}</strong></span> <span>${r.target_id || r.source_id}</span>`;
+            relContainer.appendChild(el);
+          });
+        }
+      } catch (err) {
+        document.getElementById('detail-content').innerText = node.snippet || 'Nodo registrado en SQLite WAL.';
+      }
+    }
+
+    document.getElementById('drawer-close-btn').addEventListener('click', () => {
+      document.getElementById('drawer').classList.remove('open');
+    });
+
+    // Top controls
+    document.getElementById('btn-reset-view').addEventListener('click', () => {
+      zoom = 0.9;
+      panX = width / 2;
+      panY = height / 2;
+    });
+
+    document.getElementById('search-input').addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim();
+    });
+
+    // Initial boot & loop
+    loadGraphData();
+    setInterval(loadGraphData, 3000);
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>

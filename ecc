@@ -78,6 +78,7 @@ Commands:
   live        Real-time multi-window swarm monitor (use --watch for auto-refresh)
   team        Display real-time multi-agent team board and active tasks
   test        Real-time test suite runner, endpoint probing, and component check
+  graph       Launch interactive Obsidian-style neural brain graph visualizer (localhost:4848)
   memory      Query persistent context memory (e.g. 'ecc memory auth' or 'ecc memory')
   sentinel    Inspect development rules, violations, and compliance reports
   validate    Verify integrity of JSON, JSONC, agent definitions, and skills
@@ -555,6 +556,50 @@ else:
   esac
 }
 
+# ─── Neural Brain Graph Visualizer ───
+
+cmd_graph() {
+  local port=4848
+  local web_dir="$ECC_CONFIG/web/brain-graph"
+  if [ ! -d "$web_dir" ]; then
+    web_dir="$REPO_DIR/web/brain-graph"
+  fi
+
+  if [ ! -f "$web_dir/server.py" ]; then
+    issue "Brain Graph Visualizer files not found in $web_dir"
+    exit 1
+  fi
+
+  echo -e "${C_CYAN}${C_BOLD}══════════════════════════════════════════════════════════${C_NC}"
+  echo -e "${C_CYAN}${C_BOLD}  🧠 OpenCode Neural Brain Graph Visualizer (Obsidian-Style)${C_NC}"
+  echo -e "${C_CYAN}${C_BOLD}══════════════════════════════════════════════════════════${C_NC}"
+  echo ""
+
+  # Check if server is already running
+  if curl -s "http://localhost:$port/api/status" &>/dev/null; then
+    log "Visualizer server already active on port $port"
+  else
+    info "Launching Brain Graph server on port $port..."
+    python3 "$web_dir/server.py" "$port" &>/dev/null &
+    sleep 0.8
+  fi
+
+  log "Neural Brain Graph live: ${C_BOLD}http://localhost:$port${C_NC}"
+  info "Featuring Obsidian-style 2D force-directed simulation & 'My agent' active cluster."
+  echo ""
+
+  # Try to open browser
+  if command -v xdg-open &>/dev/null && [ -n "${DISPLAY:-}" ]; then
+    xdg-open "http://localhost:$port" &>/dev/null &
+    log "Opened http://localhost:$port in your default browser"
+  elif command -v open &>/dev/null; then
+    open "http://localhost:$port" &>/dev/null &
+    log "Opened http://localhost:$port in your default browser"
+  else
+    info "Open http://localhost:$port in any web browser on your network."
+  fi
+}
+
 # ─── Validate ───
 
 cmd_validate() {
@@ -778,6 +823,9 @@ main() {
       ;;
     test|testing|suite)
       cmd_test "${@:2}"
+      ;;
+    graph|brain|obsidian)
+      cmd_graph "${@:2}"
       ;;
     validate|verify)
       cmd_validate

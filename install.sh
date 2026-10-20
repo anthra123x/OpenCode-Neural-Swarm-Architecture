@@ -251,6 +251,13 @@ if echo "$CHOICES" | grep -q "MCP" && [ -d "$REPO_DIR/mcp" ]; then
     done
   fi
 
+  # Install Brain Graph Visualizer (Web)
+  if [ -d "$REPO_DIR/web" ]; then
+    mkdir -p "$CONFIG_DIR/web"
+    cp -r "$REPO_DIR/web/"* "$CONFIG_DIR/web/"
+    log "Obsidian-style Brain Graph visualizer installed to $CONFIG_DIR/web/brain-graph"
+  fi
+
   # If compiled Rust swarm-core binary is available or cargo is present, install/build it
   if [ -f "$REPO_DIR/swarm-core/target/release/swarm-core" ]; then
     cp "$REPO_DIR/swarm-core/target/release/swarm-core" "$LOCAL_BIN/swarm-core.tmp"
