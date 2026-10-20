@@ -74,6 +74,10 @@ Devuelve un snapshot compacto del estado del proyecto: nodos recientes por tipo,
   decay_audit(dry_run=False, prune_threshold=0.15)  # Purgar
   ```
 
+### C. Visualización TUI Nativa y Web D3
+- **Widget TUI Nativo (TypeScript & SolidJS)**: Plugin `opencode-brain-graph` inyectado directamente en el slot `sidebar.content` debajo de `▼ MCP`. Muestra la topología del cluster activo (`[My Agent]`), nodos, sinapsis en vivo y conteos reactivos.
+- **Visualizador Web Interactivo 2D (D3 force-directed)**: Servidor Obsidian-style en `http://localhost:4848`. Ejecutar con `ecc graph` o comando `/graph` en OpenCode.
+
 ---
 
 ## 3. Protocolo de Ejecución y Quality Gate (`swarm-engine`)
