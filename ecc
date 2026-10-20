@@ -170,7 +170,7 @@ cmd_doctor() {
   fi
 
   # Native MCP Servers
-  for mcp_name in context-memory team-collab swarm-sentinel swarm-tester; do
+  for mcp_name in brain-graph swarm-engine context-memory team-collab swarm-sentinel swarm-tester; do
     local s_script
     if s_script=$(find_mcp_server "$mcp_name"); then
       log "MCP Server [$mcp_name]: $s_script"
@@ -268,41 +268,40 @@ cmd_status() {
 
   # MCP Servers & Storage
   echo ""
-  echo -e "  ${C_BOLD}Native MCP Servers & Storage:${C_NC}"
+  echo -e "  ${C_BOLD}Native MCP Servers & Storage (Core v2):${C_NC}"
+  local brain_db="${OPENCODE_BRAIN_DB:-$HOME/.opencode/brain/brain.db}"
+  local swarm_db="${OPENCODE_SWARM_DB:-$HOME/.opencode/swarm/swarm.db}"
+
+  if [ -f "$brain_db" ]; then
+    local b_nodes; b_nodes=$(python3 -c "import sqlite3; conn=sqlite3.connect('$brain_db'); print(conn.execute('SELECT COUNT(*) FROM nodes').fetchone()[0])" 2>/dev/null || echo "0")
+    local b_edges; b_edges=$(python3 -c "import sqlite3; conn=sqlite3.connect('$brain_db'); print(conn.execute('SELECT COUNT(*) FROM edges').fetchone()[0])" 2>/dev/null || echo "0")
+    local bsize; bsize=$(du -sh "$brain_db" 2>/dev/null | cut -f1)
+    echo -e "    ${C_GREEN}✓${C_NC} brain-graph (Neural Brain): $b_nodes node(s), $b_edges synapse(s) stored ($bsize)"
+  else
+    echo -e "    ${C_GREEN}✓${C_NC} brain-graph (ready, neural database will initialize on first use)"
+  fi
+
+  if [ -f "$swarm_db" ]; then
+    local s_rules; s_rules=$(python3 -c "import sqlite3; conn=sqlite3.connect('$swarm_db'); print(conn.execute('SELECT COUNT(*) FROM sentinel_rules WHERE enabled=1').fetchone()[0])" 2>/dev/null || echo "7")
+    local s_tasks; s_tasks=$(python3 -c "import sqlite3; conn=sqlite3.connect('$swarm_db'); print(conn.execute('SELECT COUNT(*) FROM swarm_tasks').fetchone()[0])" 2>/dev/null || echo "0")
+    local s_tests; s_tests=$(python3 -c "import sqlite3; conn=sqlite3.connect('$swarm_db'); print(conn.execute('SELECT COUNT(*) FROM tester_runs').fetchone()[0])" 2>/dev/null || echo "0")
+    echo -e "    ${C_GREEN}✓${C_NC} swarm-engine (Unified Engine): $s_rules rule(s), $s_tasks task(s), $s_tests test run(s)"
+  else
+    echo -e "    ${C_GREEN}✓${C_NC} swarm-engine (ready, unified sentinel+tester engine)"
+  fi
+
   local mem_db="${OPENCODE_MEMORY_DB:-$HOME/.opencode/memory/context_memory.db}"
   local team_db="${OPENCODE_TEAM_DB:-$HOME/.opencode/team/team_collab.db}"
-
-  if [ -f "$mem_db" ]; then
-    local mcount; mcount=$(python3 -c "import sqlite3; conn=sqlite3.connect('$mem_db'); print(conn.execute('SELECT COUNT(*) FROM memories').fetchone()[0])" 2>/dev/null || echo "0")
-    local msize; msize=$(du -sh "$mem_db" 2>/dev/null | cut -f1)
-    echo -e "    ${C_GREEN}✓${C_NC} context-memory (FTS5): $mcount memory item(s) stored ($msize)"
-  else
-    echo -e "    ${C_GREEN}✓${C_NC} context-memory (ready, database will initialize on first use)"
-  fi
-
-  if [ -f "$team_db" ]; then
-    local tcount; tcount=$(python3 -c "import sqlite3; conn=sqlite3.connect('$team_db'); print(conn.execute('SELECT COUNT(*) FROM team_tasks').fetchone()[0])" 2>/dev/null || echo "0")
-    echo -e "    ${C_GREEN}✓${C_NC} team-collab (Swarm Bus): $tcount task(s) on board"
-  else
-    echo -e "    ${C_GREEN}✓${C_NC} team-collab (ready, database will initialize on first use)"
-  fi
-
-  local sentinel_db="${OPENCODE_SENTINEL_DB:-$HOME/.opencode/sentinel/sentinel.db}"
-  if [ -f "$sentinel_db" ]; then
-    local rcount; rcount=$(python3 -c "import sqlite3; conn=sqlite3.connect('$sentinel_db'); print(conn.execute('SELECT COUNT(*) FROM sentinel_rules WHERE enabled=1').fetchone()[0])" 2>/dev/null || echo "7")
-    local vcount; vcount=$(python3 -c "import sqlite3; conn=sqlite3.connect('$sentinel_db'); print(conn.execute('SELECT COUNT(*) FROM sentinel_violations WHERE resolved=0').fetchone()[0])" 2>/dev/null || echo "0")
-    echo -e "    ${C_GREEN}✓${C_NC} swarm-sentinel (Rules & Audit): $rcount active rule(s), $vcount open violation(s)"
-  else
-    echo -e "    ${C_GREEN}✓${C_NC} swarm-sentinel (ready, 7 engineering rules active)"
-  fi
-
-  local tester_db="${OPENCODE_TESTER_DB:-$HOME/.opencode/tester/tester.db}"
-  if [ -f "$tester_db" ]; then
-    local run_count; run_count=$(python3 -c "import sqlite3; conn=sqlite3.connect('$tester_db'); print(conn.execute('SELECT COUNT(*) FROM tester_runs').fetchone()[0])" 2>/dev/null || echo "0")
-    local comp_count; comp_count=$(python3 -c "import sqlite3; conn=sqlite3.connect('$tester_db'); print(conn.execute('SELECT COUNT(*) FROM component_checks').fetchone()[0])" 2>/dev/null || echo "0")
-    echo -e "    ${C_GREEN}✓${C_NC} swarm-tester (Live Testing & Probes): $run_count test run(s), $comp_count component check(s)"
-  else
-    echo -e "    ${C_GREEN}✓${C_NC} swarm-tester (ready, continuous automated testing engine)"
+  if [ -f "$mem_db" ] || [ -f "$team_db" ]; then
+    echo -e "  ${C_DIM}Legacy MCP Storage (v1 fallback):${C_NC}"
+    if [ -f "$mem_db" ]; then
+      local mcount; mcount=$(python3 -c "import sqlite3; conn=sqlite3.connect('$mem_db'); print(conn.execute('SELECT COUNT(*) FROM memories').fetchone()[0])" 2>/dev/null || echo "0")
+      echo -e "    ${C_DIM}• context-memory: $mcount items stored${C_NC}"
+    fi
+    if [ -f "$team_db" ]; then
+      local tcount; tcount=$(python3 -c "import sqlite3; conn=sqlite3.connect('$team_db'); print(conn.execute('SELECT COUNT(*) FROM team_tasks').fetchone()[0])" 2>/dev/null || echo "0")
+      echo -e "    ${C_DIM}• team-collab: $tcount tasks recorded${C_NC}"
+    fi
   fi
 
   # Skills
@@ -646,7 +645,7 @@ PYEOF
   fi
 
   # Validate MCP server syntax
-  for ms in "$ECC_CONFIG/mcp/context-memory/server.py" "$ECC_CONFIG/mcp/team-collab/server.py" "$ECC_CONFIG/mcp/swarm-sentinel/server.py" "$ECC_CONFIG/mcp/swarm-tester/server.py"; do
+  for ms in "$ECC_CONFIG/mcp/brain-graph/server.py" "$ECC_CONFIG/mcp/swarm-engine/server.py" "$ECC_CONFIG/mcp/context-memory/server.py" "$ECC_CONFIG/mcp/team-collab/server.py" "$ECC_CONFIG/mcp/swarm-sentinel/server.py" "$ECC_CONFIG/mcp/swarm-tester/server.py"; do
     if [ -f "$ms" ]; then
       if python3 -m py_compile "$ms" 2>/dev/null; then
         log "  ✓ $(basename "$(dirname "$ms")")/server.py (compiled cleanly)"

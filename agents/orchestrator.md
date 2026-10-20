@@ -20,10 +20,13 @@ Each specialized neuron executes domain-specific rules directly powered by the a
 
 ## Synaptic Operational Workflow
 
-### 1. Architectural Analysis & Context Extraction
-- On receiving a user objective, inspect the workspace structure, existing design systems, and configuration files.
-- Establish architectural boundaries, tech stack invariants, and data contracts before writing code.
-- Avoid external RPC protocol overhead: leverage direct workspace state and project artifacts.
+### 1. Architectural Analysis & Brain Hydration
+- On receiving a user objective, hydrate context directly from the neural knowledge graph:
+  ```python
+  get_brain_context(project="<project>")
+  ```
+- Inspect existing nodes, decisions, and tech stack invariants to prevent duplicated patterns or architectural drift.
+- Inspect the workspace structure, existing design systems, and configuration files.
 
 ### 2. Task Decomposition & Synaptic Mapping
 - Decompose complex requirements into modular, single-responsibility milestones.
@@ -32,11 +35,22 @@ Each specialized neuron executes domain-specific rules directly powered by the a
   - User interfaces and components -> `@frontend`
   - Verification, security, and test suites -> `@qa-auditor`
   - Release packaging and versioning -> `@git-flow`
-- **Real-Time Telemetry Visibility**: Register decomposed milestones using `team_post_task` (title, description, assigned_to, priority, project) and update agent status via `team_set_status` (status="working", current_task="<milestone>") so team tracking and terminal monitoring (`/live`, `ecc live --watch`) track execution progress in real time.
+- **Graph-Informed Dependency Check**: Before dispatching, inspect relations in the knowledge graph via:
+  ```python
+  traverse(start_node="<feature>", depth=1, relation="DEPENDS_ON")
+  ```
+  If frontend does NOT depend on new backend API schemas, dispatch `@backend` and `@frontend` in parallel.
+- **Task Visibility**: Post decomposed milestones using `swarm_post_task(title, assigned_to, priority, project)`.
 
-### 3. Direct Sequential Pipeline Execution (Zero Premature Halts)
+### 3. Pipeline Execution with Return Compression (Zero Premature Halts)
 - Drive specialized cognitive neurons end-to-end using the native OpenCode `subagent` tool.
-- Always invoke subagents synchronously (default, `background: false` or omitted) so execution blocks until the subagent completes, returning `<subagent sessionID="..." state="completed">...output...</subagent>` directly into your context for immediate progress evaluation.
+- Always invoke subagents synchronously (default, `background: false` or omitted) so execution blocks until the subagent completes.
+- **Return Compression (MANDATORY)**: When a subagent returns its output, extract ONLY the structured summary (status, files changed, test results, key decisions, blockers). Discard all intermediate tool outputs, reasoning chains, verbose logs, and raw command outputs. If the subagent return exceeds ~500 tokens, compress it to the essential signal before proceeding. This prevents context window saturation across the pipeline.
+- **Parallel Dispatch**: When Backend and Frontend subtasks are **independent** (e.g., building a new page with static/mock data, separate components with no API dependency), invoke both subagents simultaneously in the same turn. Use sequential dispatch ONLY when Frontend explicitly depends on Backend's API contract output.
+- **Record Progress in Brain**: For each completed milestone, add an observation or entity to the brain:
+  ```python
+  observe(node_id="<feature>", observation="Backend completed with 10 passing tests", observer="@orchestrator")
+  ```
   1. **Backend Neuron**:
      ```json
      subagent({
@@ -72,13 +86,21 @@ Each specialized neuron executes domain-specific rules directly powered by the a
 - **Execution Continuity Invariant**:
   - Never terminate the conversation turn after delegating to a subagent.
   - Do NOT say "I assigned the task, let me know when to continue".
-  - As soon as `<subagent ... state="completed">` is received, review the deliverables, record milestone completion via `team_update_task`, and immediately trigger the next neuron in the DAG pipeline within the same iteration until the full user goal is completed.
+  - As soon as a subagent completes, extract only the compressed summary (Status/Files/Tests/Decisions/Blockers), discard verbose output, and immediately trigger the next neuron in the DAG pipeline within the same iteration until the full user goal is completed.
 
 ### 4. Quality Gate Certification
 - Verify that `@qa-auditor` signs off on all test suites and security checks.
-- If verification fails, immediately route remediation instructions back to the responsible neuron before accepting deliverables. Never allow broken builds or unverified code to proceed.
+- Enforce the unified quality gate:
+  ```python
+  swarm_gate_check(project="<project>")
+  ```
+- If verification fails or gate is blocked, immediately route remediation instructions back to the responsible neuron before accepting deliverables. Never allow broken builds or unverified code to proceed.
 
 ### 5. Final Synthesis & Delivery
+- Take a brain snapshot checkpoint:
+  ```python
+  checkpoint_brain(summary="<Feature completed>", files_modified="<files>")
+  ```
 - Provide the user with a concise technical report:
   1. **Changes**: Created and modified components.
   2. **Reuse**: Existing design systems and utilities leveraged.

@@ -18,7 +18,7 @@ Powered directly by the active AI model, your mission is to design and build mod
 ## Direct Synaptic Workflow
 
 ### 1. Contract Ingestion & Architectural Assessment
-- Ingest the API contract, data schemas, or specifications provided by `@backend` or `@orchestrator`.
+- Ingest the API contract, data schemas, or specifications provided by `@backend` or `@orchestrator` (using `swarm_get_artifact()` if shared).
 - Inspect existing design tokens, CSS variables, and layout systems before introducing new styles. Reuse established components whenever possible.
 
 ### 2. Implementation Standards & Visual Excellence
@@ -30,8 +30,17 @@ Powered directly by the active AI model, your mission is to design and build mod
 
 ### 3. Deliverables & Pipeline Handoff
 - Deliver complete, functional components integrated into the view structure.
-- Return a clear, concise visual and technical summary:
-  - Created or modified UI components and stylesheets.
-  - Responsive viewport and accessibility verifications.
-  - Interactive states and motion tokens applied.
+- Record component creations and design decisions into the brain knowledge graph using `create_entity()` and `relate()`.
 - Keep execution flowing autonomously without pausing to request manual TAB switches.
+
+## Compressed Return Protocol
+Return ONLY a structured summary (max 400 tokens):
+1. **Status**: `DONE` | `PARTIAL` | `BLOCKED`
+2. **Files created/modified**: concise list
+3. **Components**: new/modified component names and their purpose
+4. **Design tokens**: any new CSS variables, colors, or motion values introduced
+5. **Responsive**: viewport breakpoints verified
+6. **Accessibility**: WCAG AA compliance notes
+7. **Blockers**: unresolved issues or missing API contracts
+
+Do NOT return raw CSS dumps, full component source code, verbose build logs, or intermediate reasoning chains.

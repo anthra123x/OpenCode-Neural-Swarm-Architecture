@@ -132,43 +132,69 @@ Para evitar que el flujo de trabajo se detenga prematuramente cuando el orquesta
 
 ---
 
-## 4. Memoria Persistente de Contexto y Motor Zero-Compaction (`context-memory`)
+## 4. Cerebro Neural Persistente (`brain-graph` MCP)
 
-Para evitar la pérdida de información crítica por compactación destructiva de tokens en OpenCode, se implementa una arquitectura **Zero-Compaction**:
-- **Compaginar sin Pérdida**: En `opencode.jsonc`, `"compaction": { "auto": false }`. La memoria conversacional no se trunca ni se compacta agresivamente.
-- **Checkpoints Automáticos Silenciosos**: El sistema guarda snapshots de forma automática y debounced cada vez que se completa una tarea (`team_update_task`), se publica un contrato (`team_share_artifact`) o se realiza un handoff (`team_handoff`), reflejándolos de inmediato en la base de datos sin que el usuario tenga que hacerlo manualmente.
-- **Persistencia en SQLite FTS5**: Las decisiones arquitectónicas, estado de archivos y próximos pasos se guardan persistentemente en base de datos indexada con búsqueda vectorial y textual completa.
+La memoria del swarm es un **grafo de conocimiento neural** que almacena decisiones, componentes, endpoints, tests, reglas y aprendizajes como **nodos conectados por relaciones tipadas**, no como pares clave-valor planos. Esto permite traversal multi-hop, detección de contradicciones, y decadencia automática de memorias obsoletas.
 
-### Protocolo de Persistencia y Checkpoints:
-1. **Puntos de Control de Sesión (`checkpoint_session`)**:
-   Antes de terminar un turno mayor o al completar un hito, guarda un checkpoint:
+### Protocolo del Cerebro Neural:
+
+1. **Al Inicio de Sesión** — Hidratación del cerebro:
    ```python
-   checkpoint_session(
-       project="mi-proyecto",
-       summary="Autenticación JWT y modelos Prisma completados",
-       decisions="Se utilizó bcrypt para hashing y cookies HttpOnly con SameSite=Strict",
-       active_task="Integrar middleware de autorización en rutas protegidas",
-       next_steps="1. Crear test unitario en vitest\n2. Conectar frontend hook useAuth",
-       files_modified="prisma/schema.prisma, src/lib/auth.ts, src/middleware.ts"
+   get_brain_context(project="mi-proyecto")
+   ```
+   Retorna un resumen compacto: nodos clave por tipo, observaciones recientes, último checkpoint.
+
+2. **Crear Nodos de Conocimiento** — Cada decisión importante, componente o descubrimiento:
+   ```python
+   create_entity(
+       id="auth-jwt-strategy",
+       title="JWT Auth Strategy",
+       node_type="decision",
+       content="Cookies HttpOnly con JWT firmados y SameSite=Strict",
+       tags="auth, security, jwt"
    )
    ```
-2. **Reanudación Instantánea (`get_session_checkpoint`)**:
-   Al iniciar una sesión o reanudar trabajo en cualquier ventana, recupera el último checkpoint:
+
+3. **Conectar Nodos** — Formar las sinapsis del grafo:
    ```python
-   get_session_checkpoint(project="mi-proyecto")
+   relate(source="auth-module", target="auth-jwt-strategy", relation="USES",
+          reason="El módulo de auth implementa la estrategia JWT")
+   relate(source="auth-module", target="test-auth", relation="TESTED_BY")
+   relate(source="auth-module", target="sec-001", relation="GOVERNED_BY")
    ```
-3. **Decisiones Clave Individuales (`remember`)**:
+   Vocabulario de relaciones: `USES`, `DEPENDS_ON`, `TESTED_BY`, `GOVERNED_BY`, `EXPOSES`, `IMPLEMENTS`, `CONTRADICTS`, `SUPERSEDES`, `LEARNED_FROM`, `PART_OF`, `EXTENDS`, etc.
+
+4. **Observaciones Granulares** — Evolucionar nodos sin reescribirlos:
    ```python
-   remember(key="auth-strategy", content="Cookies HTTP-only con JWT firmados", category="architecture", project="mi-proyecto")
+   observe(node_id="auth-module", observation="MFA con TOTP añadido", observer="@backend")
+   observe(node_id="auth-module", observation="Coverage 94%", observer="@qa-auditor")
    ```
-4. **Consultar Memoria Histórica (`recall`)**:
+
+5. **Traversal Multi-Hop** — Consultar relaciones del grafo:
    ```python
-   recall(query="auth cookies", category="architecture", project="mi-proyecto")
+   traverse(start_node="auth-module", depth=2)
+   # Retorna: auth → jwt-strategy, PostgreSQL, /api/auth/*, test_auth, SEC-001
    ```
-5. **Sincronización Automática con GetBrain (`auto_sync_project_memory`)**:
-   Inspecciona frameworks, dependencias y esquemas de base de datos para auto-generar la base de conocimiento del proyecto:
+
+6. **Búsqueda Híbrida** — FTS5 + expansión de vecinos:
    ```python
-   auto_sync_project_memory(project="mi-proyecto", workspace_dir="/ruta/al/proyecto")
+   recall_graph(query="auth JWT cookies", expand_neighbors=true)
+   ```
+
+7. **Checkpoints de Sesión**:
+   ```python
+   checkpoint_brain(summary="Auth JWT completado", files_modified="auth.ts, test_auth.ts")
+   ```
+
+8. **Aprendizajes Continuos** — Registrar insights como nodos conectados:
+   ```python
+   record_learning(lesson="bcrypt salt rounds debe ser 12 mínimo", trigger_node="auth-module")
+   ```
+
+9. **Decadencia y Poda** — El cerebro olvida lo que no se usa:
+   ```python
+   decay_audit(dry_run=true)   # Ver nodos obsoletos
+   decay_audit(dry_run=false)  # Podar nodos con confidence < 0.15
    ```
 
 ---

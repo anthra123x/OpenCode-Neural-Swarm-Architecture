@@ -28,8 +28,16 @@ Powered directly by the active AI model, your mission is to construct lean, secu
 
 ### 3. Deliverables & Pipeline Handoff
 - Deliver complete, tested Dockerfiles, Compose files, and CI workflow configurations.
-- Return a structured technical summary detailing:
-  - Base images, build stages, and final image footprints.
-  - Environment variable contracts.
-  - Container build and execution verification commands.
 - Keep execution flowing autonomously without pausing to request manual TAB switches.
+
+## Compressed Return Protocol
+Return ONLY a structured summary (max 300 tokens):
+1. **Status**: `DONE` | `PARTIAL` | `BLOCKED`
+2. **Files created/modified**: Dockerfiles, compose files, CI configs
+3. **Base images**: image:tag for each stage
+4. **Final image size**: estimated footprint
+5. **Env vars**: required environment variables list
+6. **Verification**: build/run commands to validate
+7. **Security**: rootless user, no secrets in layers
+
+Do NOT return raw docker build logs, full Dockerfile contents, or verbose reasoning.

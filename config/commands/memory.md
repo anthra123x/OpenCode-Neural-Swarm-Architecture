@@ -1,5 +1,5 @@
 ---
-description: Search, view, or manage persistent context memories, active architectural decisions, and project conventions.
+description: Search, view, or manage persistent neural memory, active decisions, and knowledge graph nodes.
 ---
 
-Display active project and global context by calling `get_active_context()`. If a search argument is provided, execute `recall(query=...)` to find matching memories. If arguments start with 'add' or 'remember', prompt to store a new memory item.
+Display active project memory and brain status by calling `get_brain_context()`. If a search argument is provided, execute `recall_graph(query=..., expand_neighbors=True)` to find matching nodes and synaptic connections. If arguments start with 'add' or 'remember', create a new entity using `create_entity()`.

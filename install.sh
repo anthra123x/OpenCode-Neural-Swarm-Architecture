@@ -14,19 +14,17 @@ setup_utils
 
 print_banner
 msgbox "Welcome" \
-"Welcome to the opencode Multi-Agent Swarm Configuration Manager!
+"Welcome to the OpenCode Neural Swarm v2 Configuration Manager!
 
 This installer will set up:
 
   • 6 Specialized Sub-Agents (@orchestrator, @backend, @frontend, @git-flow, @qa-auditor, @devops)
-  • 3 Native MCP Servers:
-      - context-memory (Persistent context with SQLite FTS5)
-      - team-collab (Inter-agent communication & task board)
-      - swarm-sentinel (Engineering rules guardian & automated task auditor)
+  • 2 Unified Core MCP Servers:
+      - brain-graph (Neural Knowledge Graph with Obsidian-style typed edges & decay)
+      - swarm-engine (Unified Sentinel Rules + Live Tester Runner + Task Gate)
   • 34 ECC skills for engineering, testing, DB, design, infra
-  • Engineering methodology & Swarm Lifecycle (INSTRUCTIONS.md)
-  • Multi-agent rules & memory protocols (AGENTS.md)
-  • Aesthetic TUI Theme & Custom Slash Commands (/team, /memory, etc.)
+  • Swarm Operational Protocol & Architecture (SWARM.md & INSTRUCTIONS.md)
+  • TokyoNight Aesthetic TUI Theme & Slash Commands (/graph, /tasks, /live, etc.)
 
 Two modes available:
   - Quickstart: minimal prompts, recommended
@@ -182,6 +180,7 @@ if echo "$CHOICES" | grep -q "CONFIG"; then
   do_step "Installing core configuration..."
   cp "$REPO_DIR/config/opencode.jsonc" "$CONFIG_DIR/opencode.jsonc"
   cp "$REPO_DIR/config/opencode.json" "$CONFIG_DIR/opencode.json"
+  cp "$REPO_DIR/config/SWARM.md" "$CONFIG_DIR/SWARM.md"
   cp "$REPO_DIR/config/INSTRUCTIONS.md" "$CONFIG_DIR/INSTRUCTIONS.md"
   cp "$REPO_DIR/config/AGENTS.md" "$CONFIG_DIR/AGENTS.md"
   log "Core configuration installed to $CONFIG_DIR"
@@ -210,27 +209,31 @@ fi
 # 4. Install Native MCP Servers
 if echo "$CHOICES" | grep -q "MCP" && [ -d "$REPO_DIR/mcp" ]; then
   do_step "Installing native MCP servers..."
-  mkdir -p "$CONFIG_DIR/mcp/context-memory"
-  mkdir -p "$CONFIG_DIR/mcp/team-collab"
-  mkdir -p "$CONFIG_DIR/mcp/swarm-sentinel"
-  mkdir -p "$CONFIG_DIR/mcp/swarm-tester"
-  cp -r "$REPO_DIR/mcp/context-memory/"* "$CONFIG_DIR/mcp/context-memory/"
-  cp -r "$REPO_DIR/mcp/team-collab/"* "$CONFIG_DIR/mcp/team-collab/"
-  cp -r "$REPO_DIR/mcp/swarm-sentinel/"* "$CONFIG_DIR/mcp/swarm-sentinel/"
-  cp -r "$REPO_DIR/mcp/swarm-tester/"* "$CONFIG_DIR/mcp/swarm-tester/"
-  chmod +x "$CONFIG_DIR/mcp/context-memory/server.py" "$CONFIG_DIR/mcp/team-collab/server.py" "$CONFIG_DIR/mcp/swarm-sentinel/server.py" "$CONFIG_DIR/mcp/swarm-tester/server.py"
+  for srv in brain-graph swarm-engine context-memory team-collab swarm-sentinel swarm-tester; do
+    if [ -d "$REPO_DIR/mcp/$srv" ]; then
+      mkdir -p "$CONFIG_DIR/mcp/$srv"
+      cp -r "$REPO_DIR/mcp/$srv/"* "$CONFIG_DIR/mcp/$srv/"
+      if [ -f "$CONFIG_DIR/mcp/$srv/server.py" ]; then
+        chmod +x "$CONFIG_DIR/mcp/$srv/server.py"
+      fi
+    fi
+  done
 
   # Also copy to swarm/mcp if present
   if [ -d "$CONFIG_DIR/swarm/mcp" ]; then
-    for srv in context-memory team-collab swarm-sentinel swarm-tester; do
-      mkdir -p "$CONFIG_DIR/swarm/mcp/$srv"
-      cp -r "$REPO_DIR/mcp/$srv/"* "$CONFIG_DIR/swarm/mcp/$srv/"
-      chmod +x "$CONFIG_DIR/swarm/mcp/$srv/server.py"
+    for srv in brain-graph swarm-engine context-memory team-collab swarm-sentinel swarm-tester; do
+      if [ -d "$REPO_DIR/mcp/$srv" ]; then
+        mkdir -p "$CONFIG_DIR/swarm/mcp/$srv"
+        cp -r "$REPO_DIR/mcp/$srv/"* "$CONFIG_DIR/swarm/mcp/$srv/"
+        if [ -f "$CONFIG_DIR/swarm/mcp/$srv/server.py" ]; then
+          chmod +x "$CONFIG_DIR/swarm/mcp/$srv/server.py"
+        fi
+      fi
     done
   fi
 
   # Create executable wrappers in ~/.local/bin
-  for srv in context-memory team-collab swarm-sentinel swarm-tester; do
+  for srv in brain-graph swarm-engine context-memory team-collab swarm-sentinel swarm-tester; do
     cat > "$LOCAL_BIN/opencode-$srv" <<EOF
 #!/usr/bin/env bash
 if [ -f "$CONFIG_DIR/mcp/$srv/server.py" ]; then
@@ -245,7 +248,7 @@ EOF
     chmod +x "$LOCAL_BIN/opencode-$srv"
   done
 
-  log "Native MCP servers installed (context-memory, team-collab, swarm-sentinel, swarm-tester)"
+  log "Native MCP servers installed (brain-graph, swarm-engine, context-memory, team-collab, swarm-sentinel, swarm-tester)"
 fi
 
 # 5. Install Skills
@@ -344,7 +347,7 @@ SUMMARY="Installation complete!
 
   Config:  $CONFIG_DIR
   Agents:  6 specialized sub-agents installed
-  MCP:     context-memory (FTS5) & team-collab active
+  MCP:     brain-graph (Neural Graph) & swarm-engine (Quality Gate) active
   TUI:     tokyonight theme enabled
   Skills:  $SKILLS_DIR ($SKILL_COUNT skills)
   CLI:     $LOCAL_BIN/ecc
@@ -362,7 +365,7 @@ msgbox "Summary" "$SUMMARY"
 
 echo ""
 echo -e "${C_CYAN}${C_BOLD}══════════════════════════════════════════════════════════${C_NC}"
-echo -e "${C_CYAN}${C_BOLD}  OpenCode Swarm Configuration Ready${C_NC}"
+echo -e "${C_CYAN}${C_BOLD}  OpenCode Swarm Configuration Ready (v2)${C_NC}"
 echo -e "${C_CYAN}${C_BOLD}══════════════════════════════════════════════════════════${C_NC}"
 echo ""
 echo -e "  ${C_BOLD}Specialized Agents:${C_NC}"
@@ -373,15 +376,15 @@ echo -e "    ${C_GREEN}• @git-flow${C_NC}      — Commits, Branching & Pull R
 echo -e "    ${C_YELLOW}• @qa-auditor${C_NC}   — Verification Loop & Security Audits"
 echo -e "    ${C_CYAN}• @devops${C_NC}       — Docker, CI/CD & Deployments"
 echo ""
-echo -e "  ${C_BOLD}MCP Servers:${C_NC}"
-echo -e "    ${C_GREEN}✓${C_NC} context-memory (SQLite FTS5 persistent memory)"
-echo -e "    ${C_GREEN}✓${C_NC} team-collab    (Inter-agent Swarm Bus & task board)"
-echo -e "    ${C_GREEN}✓${C_NC} swarm-sentinel (Autonomous Rules Guardian & Auditor)"
-echo -e "    ${C_GREEN}✓${C_NC} swarm-tester   (Real-Time Continuous Testing & Probes)"
+echo -e "  ${C_BOLD}MCP Servers (Consolidated Core):${C_NC}"
+echo -e "    ${C_GREEN}✓${C_NC} brain-graph   (Neural Knowledge Graph with Obsidian-style typed edges)"
+echo -e "    ${C_GREEN}✓${C_NC} swarm-engine (Unified Sentinel Rules + Live Tester + Task Gate)"
 echo ""
 echo -e "  ${C_BOLD}Available Commands in OpenCode:${C_NC}"
+echo -e "    ${C_GREEN}/graph${C_NC}     — Inspect and traverse neural knowledge graph"
 echo -e "    ${C_GREEN}/team${C_NC}      — View team status and task board"
-echo -e "    ${C_GREEN}/memory${C_NC}    — Query and recall persistent context"
+echo -e "    ${C_GREEN}/tasks${C_NC}     — Manage and inspect development tasks"
+echo -e "    ${C_GREEN}/live${C_NC}      — Live swarm monitoring and tester"
 echo -e "    ${C_GREEN}/backend${C_NC}   — Delegate to backend specialist"
 echo -e "    ${C_GREEN}/frontend${C_NC}  — Delegate to frontend specialist"
 echo -e "    ${C_GREEN}/git-flow${C_NC}  — Delegate to git workflow manager"

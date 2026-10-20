@@ -1,25 +1,35 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
+    "brain-graph": {
+      "type": "local",
+      "command": ["opencode-brain-graph"],
+      "enabled": true
+    },
+    "swarm-engine": {
+      "type": "local",
+      "command": ["opencode-swarm-engine"],
+      "enabled": true
+    },
     "context-memory": {
       "type": "local",
       "command": ["opencode-context-memory"],
-      "enabled": true
+      "enabled": false
     },
     "team-collab": {
       "type": "local",
       "command": ["opencode-team-collab"],
-      "enabled": true
+      "enabled": false
     },
     "swarm-sentinel": {
       "type": "local",
       "command": ["opencode-swarm-sentinel"],
-      "enabled": true
+      "enabled": false
     },
     "swarm-tester": {
       "type": "local",
       "command": ["opencode-swarm-tester"],
-      "enabled": true
+      "enabled": false
     },
     "codebase-memory-mcp": {
       "type": "local",

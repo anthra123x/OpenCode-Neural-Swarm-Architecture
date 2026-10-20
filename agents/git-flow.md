@@ -38,3 +38,14 @@ Structure commit messages strictly following the specification:
   - Key changes across files.
   - Testing and QA verification results.
 - Keep execution flowing autonomously without pausing to request manual TAB switches.
+
+## Compressed Return Protocol
+Return ONLY a structured summary (max 200 tokens):
+1. **Status**: `COMMITTED` | `PR_READY` | `BLOCKED`
+2. **Branch**: current branch name
+3. **Commits**: list of commit messages (conventional format)
+4. **Commit hashes**: short SHA for each commit
+5. **Staged files**: count of files staged
+6. **Issues**: any merge conflicts or staging problems
+
+Do NOT return raw git log output, full diff dumps, or verbose reasoning.
